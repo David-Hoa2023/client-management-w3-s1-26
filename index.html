@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Speed Decode — Shared Frequency Board</title>
+<title>Speed Decode — Frequency Board</title>
 <style>
   :root {
     --amber-50:#FAEEDA;--amber-800:#633806;
@@ -28,6 +28,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
 
+  /* GATE */
   .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
   .gcard{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.75rem;max-width:340px;width:100%;text-align:center}
   .gcard h2{font-size:16px;font-weight:500;margin-bottom:6px}
@@ -41,6 +42,7 @@
   #adminpanel{display:none;margin-top:12px;border-top:0.5px solid var(--border2);padding-top:12px;text-align:left}
   #adminpanel label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px}
 
+  /* APP */
   #app{display:none;min-height:100vh;flex-direction:column}
   .tb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--bg);border-bottom:0.5px solid var(--border2);position:sticky;top:0;z-index:10}
   .tbtn{padding:4px 11px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap}
@@ -55,13 +57,23 @@
   .apill{font-size:11px;padding:3px 9px;border-radius:20px;background:#FAECE7;border:0.5px solid #F0997B;color:#712B13;display:none}
   .vc{font-size:12px;color:var(--text2);padding:4px 10px;border-radius:var(--radius);background:var(--bg2);white-space:nowrap;display:none}
   .vc b{color:var(--text)}
-  .sync{font-size:11px;color:var(--text3);padding:4px 8px}
+  .syncdot{width:7px;height:7px;border-radius:50%;background:#5DCAA5;flex-shrink:0}
+  .syncdot.err{background:#D85A30}
+  .synclbl{font-size:11px;color:var(--text3)}
 
+  /* CONFIRM BANNER */
+  #cbanner{display:none;background:#FAECE7;border:0.5px solid #F0997B;border-radius:var(--radius);padding:8px 14px;margin:8px 1rem 0;align-items:center;gap:10px;flex-wrap:wrap}
+  #cbanner p{font-size:12px;color:#712B13;flex:1;margin:0}
+  #cbanner .yes{padding:4px 12px;border-radius:var(--radius);border:none;background:#993C1D;color:#fff;font-size:12px;cursor:pointer}
+  #cbanner .no{padding:4px 12px;border-radius:var(--radius);border:0.5px solid #993C1D;background:transparent;color:#993C1D;font-size:12px;cursor:pointer}
+
+  /* LEGEND */
   .lgnd{display:flex;gap:10px;padding:7px 12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border)}
   .leg{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2)}
   .lsw{width:11px;height:11px;border-radius:2px;flex-shrink:0}
   .dot{width:6px;height:6px;border-radius:50%;background:var(--coral-500);display:inline-block}
 
+  /* BOARD */
   .bwrap{overflow-x:auto;padding:1rem 1rem 0}
   .board{display:grid;grid-template-columns:72px repeat(6,1fr);min-width:720px;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);overflow:hidden}
   .ch{padding:7px 7px 6px;background:var(--bg2);border-bottom:0.5px solid var(--border2);border-right:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text)}
@@ -91,6 +103,7 @@
   .ninput{width:100%;padding:3px 5px;font-size:11px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text);outline:none}
   .ninput:focus{border-color:#534AB7}
 
+  /* SUMMARY */
   .sum{margin:1rem;border:0.5px solid var(--border2);border-radius:var(--radius-lg);overflow:hidden;display:none}
   .sumh{padding:9px 12px;background:var(--bg2);border-bottom:0.5px solid var(--border2);font-size:12px;font-weight:500;display:flex;justify-content:space-between}
   .sumh span{font-size:11px;color:var(--text2);font-weight:400}
@@ -108,6 +121,7 @@
   .sv{font-size:10px;color:var(--text2);white-space:nowrap}
   .vb{color:#D85A30;margin-left:2px}
 
+  /* VOTER LOG */
   .vlog{margin:0 1rem 1rem;border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;display:none}
   .vlh{padding:8px 12px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:12px;font-weight:500}
   .vlb{padding:10px 12px;display:flex;flex-wrap:wrap;gap:5px}
@@ -116,15 +130,16 @@
   @media(prefers-color-scheme:dark){.vpill.done{background:#04342C;border-color:#1D9E75;color:#9FE1CB}}
 
   .footer{padding:1rem 1rem 2rem;font-size:11px;color:var(--text3);text-align:center;line-height:1.6}
-  .loading{padding:3rem;text-align:center;font-size:13px;color:var(--text2)}
-  #cbanner{display:none;background:#FAECE7;border:0.5px solid #F0997B;border-radius:var(--radius);padding:8px 14px;margin:8px 1rem 0;align-items:center;gap:10px;flex-wrap:wrap}
-  #cbanner p{font-size:12px;color:#712B13;flex:1;margin:0}
-  #cbanner .yes{padding:4px 12px;border-radius:var(--radius);border:none;background:#993C1D;color:#fff;font-size:12px;cursor:pointer}
-  #cbanner .no{padding:4px 12px;border-radius:var(--radius);border:0.5px solid #993C1D;background:transparent;color:#993C1D;font-size:12px;cursor:pointer}
+  #setupguide{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);margin:1rem;padding:1.25rem;font-size:13px;line-height:1.7;color:var(--text2)}
+  #setupguide strong{color:var(--text);font-weight:500}
+  #setupguide code{background:var(--bg2);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:var(--text)}
+  #setupguide ol{padding-left:1.25rem;margin-top:8px}
+  #setupguide li{margin-bottom:6px}
 </style>
 </head>
 <body>
 
+<!-- GATE -->
 <div id="gate" class="gate">
   <div class="gcard">
     <div style="font-size:24px;margin-bottom:10px">&#128203;</div>
@@ -134,11 +149,11 @@
     <button class="gbtn" onclick="doJoin()">Join session</button>
     <div class="gerr" id="gerr"></div>
     <p style="margin-top:12px;font-size:11px;color:var(--text3)">Client Management · COMM2384/2767</p>
-    <span class="alink" onclick="toggleAdmin()">Admin login</span>
+    <span class="alink" onclick="toggleAdminPanel()">Admin login</span>
     <div id="adminpanel">
-      <label for="auser">Email</label>
+      <label>Email</label>
       <input class="ginput" id="auser" type="email" placeholder="admin email" autocomplete="off" style="margin-bottom:8px">
-      <label for="apass">Password</label>
+      <label>Password</label>
       <input class="ginput" id="apass" type="password" placeholder="password" autocomplete="off" onkeydown="if(event.key==='Enter')doAdminLogin()" style="margin-bottom:10px">
       <button class="gbtn" onclick="doAdminLogin()" style="background:#854F0B">Enter as admin</button>
       <div class="gerr" id="aerr"></div>
@@ -146,22 +161,24 @@
   </div>
 </div>
 
+<!-- APP -->
 <div id="app">
-  <div class="tb" id="tb">
+  <div class="tb">
     <button class="tbtn on" id="edbtn" onclick="setMode('edit')">Edit board</button>
     <button class="tbtn" id="vobtn" onclick="setMode('vote')">Vote mode</button>
     <div class="vc" id="vcount">Votes left: <b id="vleft">3</b></div>
     <div class="vsep"></div>
     <button class="tbtn" onclick="toggleSum()">Summary</button>
     <button class="tbtn" onclick="toggleLog()">Voter log</button>
-    <button class="tbtn red" onclick="doResetVotes()">Reset votes</button>
-    <button class="tbtn adm" id="abtn1" onclick="adminClear()">Clear all notes</button>
-    <button class="tbtn adm" id="abtn2" onclick="adminFullReset()">Full reset</button>
-    <span class="sync" id="synclbl">&#9679; Live</span>
+    <button class="tbtn red" onclick="askReset()">Reset votes</button>
+    <button class="tbtn adm" id="abtn1" onclick="askClear()">Clear all notes</button>
+    <button class="tbtn adm" id="abtn2" onclick="askFullReset()">Full reset</button>
+    <div class="syncdot" id="syncdot"></div>
+    <span class="synclbl" id="synclbl">Connecting...</span>
     <div class="upill" id="upill"></div>
     <div class="apill" id="apill">Admin</div>
   </div>
-  <div id="cbanner"><p id="cbannertext"></p><button class="yes" id="cyes">Yes, proceed</button><button class="no" onclick="hideBanner()">Cancel</button></div>
+  <div id="cbanner"><p id="ctext"></p><button class="yes" id="cyes">Yes, proceed</button><button class="no" onclick="hideBanner()">Cancel</button></div>
 
   <div class="lgnd">
     <div class="leg"><div class="lsw" style="background:#FAEEDA;border:0.5px solid #BA7517"></div>Hard skills</div>
@@ -171,27 +188,42 @@
     <span style="margin-left:auto;font-size:11px;color:var(--text3)" id="hintmsg">Click + add to place a skill</span>
   </div>
 
-  <div class="bwrap">
-    <div class="board" id="bg"></div>
-  </div>
+  <div class="bwrap"><div class="board" id="bg"></div></div>
 
   <div class="sum" id="sumbox">
     <div class="sumh"><span>Frequency summary</span><span>n/6 = ads · coral = votes</span></div>
     <div class="sg" id="sumgrid"></div>
   </div>
-
   <div class="vlog" id="vlogbox">
     <div class="vlh">Voter log</div>
     <div id="vlogbody"></div>
   </div>
-
-  <div class="footer">
-    Board syncs every 5 seconds across all devices. Share this URL so every student joins the same live session.<br>
-    Admin can clear notes or reset votes from the toolbar. · COMM2384/2767 · Client Management
-  </div>
+  <div class="footer">Board syncs live across all devices via Firebase. · COMM2384/2767 · Client Management</div>
 </div>
 
-<script>
+<!-- FIREBASE SDK -->
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getDatabase,ref,onValue,set,get}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STEP 1 — Paste your Firebase config here.
+   Go to console.firebase.google.com → your project →
+   Project settings → Your apps → SDK setup → Config
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const FIREBASE_CONFIG={
+  apiKey:            "AIzaSyAvquUv80qhWYre6I5jV8TR0nqF8dU4ktE",
+  authDomain:        "test-4043d.firebaseapp.com",
+  databaseURL:       "https://test-4043d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "test-4043d",
+  storageBucket:     "test-4043d.firebasestorage.app",
+  messagingSenderId: "122614928987",
+  appId:             "1:122614928987:web:95e6f33112e43934fed17e",
+};
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+const CONFIGURED=!FIREBASE_CONFIG.apiKey.includes("PASTE");
+
 const ADS=[
   {id:1,co:"Dentsu Redder",loc:"Hanoi, VN"},
   {id:2,co:"Leo Burnett",loc:"HCMC, VN"},
@@ -226,29 +258,113 @@ const DEFAULT_NOTES=[
   {id:35,t:"Campaign metrics",l:"know",a:6,v:0},{id:36,t:"Client briefing",l:"know",a:2,v:0},
 ];
 
-const SK="sd_notes_v1",VK="sd_votes_v1";
 const ADMIN_USER="vietemt@gmail.com";
 const ADMIN_HASH=btoa("htdung71");
 
 let notes=[],votes={},nid=200;
 let currentUser=null,isAdmin=false;
 let mode="edit",editCell=null,sumVis=false,logVis=false;
-let pollTimer=null;
+let db=null,boardRef=null,votesRef=null;
 
-/* ── PERSISTENCE (localStorage — each device stores own copy) ── */
-function saveLocal(){
+/* ── SETUP GUIDE (shown when Firebase not configured) ── */
+function showSetupGuide(){
+  document.getElementById("gate").style.display="none";
+  document.getElementById("app").style.display="flex";
+  document.getElementById("bg").closest(".bwrap").insertAdjacentHTML("afterend",`
+  <div id="setupguide">
+    <strong>Firebase setup required for live sync</strong>
+    <p style="margin-top:6px">To make the board shared across all devices, connect it to a free Firebase Realtime Database:</p>
+    <ol>
+      <li>Go to <strong>console.firebase.google.com</strong> and create a free project</li>
+      <li>In the project, click <strong>Build → Realtime Database → Create database</strong> (start in test mode)</li>
+      <li>Go to <strong>Project settings → Your apps → Add app (Web)</strong>, register it, copy the config object</li>
+      <li>Open <code>index.html</code> in a text editor, find the <code>FIREBASE_CONFIG</code> block near the bottom and paste your values in</li>
+      <li>Save and re-upload <code>index.html</code> to GitHub — the board will instantly sync across all devices</li>
+    </ol>
+    <p style="margin-top:8px;font-size:12px;color:var(--text3)">Until then the board works locally in this browser using localStorage.</p>
+  </div>`);
+  loadFallback();
+  renderBoard();
+  document.getElementById("syncdot").classList.add("err");
+  document.getElementById("synclbl").textContent="Local only — Firebase not configured";
+}
+
+/* ── FIREBASE INIT ── */
+function initFirebase(){
   try{
-    localStorage.setItem(SK,JSON.stringify({notes,nid}));
-    localStorage.setItem(VK,JSON.stringify(votes));
+    const app=initializeApp(FIREBASE_CONFIG);
+    db=getDatabase(app);
+    boardRef=ref(db,"speeddecode/board");
+    votesRef=ref(db,"speeddecode/votes");
+    setSyncStatus(true);
+    return true;
+  }catch(e){
+    setSyncStatus(false);
+    return false;
+  }
+}
+
+function setSyncStatus(ok){
+  const dot=document.getElementById("syncdot");
+  const lbl=document.getElementById("synclbl");
+  if(!dot)return;
+  if(ok){dot.classList.remove("err");lbl.textContent="Live";}
+  else{dot.classList.add("err");lbl.textContent="Offline";}
+}
+
+/* ── FIREBASE READ/WRITE ── */
+async function saveBoard(){
+  if(!db){saveFallback();return;}
+  try{
+    await set(boardRef,{notes,nid});
+    await set(votesRef,votes);
+  }catch(e){setSyncStatus(false);}
+}
+
+function subscribeBoard(){
+  if(!db)return;
+  onValue(boardRef,snap=>{
+    const d=snap.val();
+    if(d){notes=d.notes||[];nid=d.nid||200;}
+    else{notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));nid=200;}
+    renderBoard();
+    if(sumVis)renderSum();
+    setSyncStatus(true);
+  },()=>setSyncStatus(false));
+
+  onValue(votesRef,snap=>{
+    votes=snap.val()||{};
+    updateVoteCounter();
+    renderBoard();
+    if(logVis)renderLog();
+    setSyncStatus(true);
+  },()=>setSyncStatus(false));
+}
+
+async function initBoardData(){
+  if(!db)return;
+  const snap=await get(boardRef);
+  if(!snap.exists()){
+    notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));nid=200;
+    await set(boardRef,{notes,nid});
+    await set(votesRef,{});
+  }
+}
+
+/* ── FALLBACK localStorage ── */
+function saveFallback(){
+  try{
+    localStorage.setItem("sd_notes",JSON.stringify({notes,nid}));
+    localStorage.setItem("sd_votes",JSON.stringify(votes));
   }catch(e){}
 }
-function loadLocal(){
+function loadFallback(){
   try{
-    const bd=JSON.parse(localStorage.getItem(SK));
-    const vd=JSON.parse(localStorage.getItem(VK));
-    notes=bd?bd.notes:JSON.parse(JSON.stringify(DEFAULT_NOTES));
-    nid=bd?bd.nid:200;
-    votes=vd||{};
+    const b=JSON.parse(localStorage.getItem("sd_notes"));
+    const v=JSON.parse(localStorage.getItem("sd_votes"));
+    notes=b?b.notes:JSON.parse(JSON.stringify(DEFAULT_NOTES));
+    nid=b?b.nid:200;
+    votes=v||{};
   }catch(e){
     notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));
     votes={};nid=200;
@@ -257,29 +373,28 @@ function loadLocal(){
 
 /* ── GATE ── */
 document.getElementById("nmin").addEventListener("keydown",e=>{if(e.key==="Enter")doJoin();});
-function toggleAdmin(){
+window.toggleAdminPanel=function(){
   const p=document.getElementById("adminpanel");
   p.style.display=p.style.display==="block"?"none":"block";
   if(p.style.display==="block")document.getElementById("auser").focus();
-}
-function doJoin(){
+};
+window.doJoin=function(){
   const v=document.getElementById("nmin").value.trim();
   if(!v){document.getElementById("gerr").textContent="Please enter your name or student ID.";return;}
   currentUser=v;
   enterApp();
-}
-function doAdminLogin(){
+};
+window.doAdminLogin=function(){
   const u=document.getElementById("auser").value.trim();
   const p=document.getElementById("apass").value;
   if(u===ADMIN_USER&&btoa(p)===ADMIN_HASH){
-    isAdmin=true;currentUser="Admin";
-    enterApp();
+    isAdmin=true;currentUser="Admin";enterApp();
   } else {
     document.getElementById("aerr").textContent="Incorrect email or password.";
   }
-}
-function enterApp(){
-  loadLocal();
+};
+
+async function enterApp(){
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="flex";
   document.getElementById("upill").textContent=currentUser;
@@ -287,26 +402,21 @@ function enterApp(){
     ["abtn1","abtn2"].forEach(id=>document.getElementById(id).style.display="inline-block");
     document.getElementById("apill").style.display="inline-flex";
   }
+  if(!CONFIGURED){
+    showSetupGuide();return;
+  }
+  const ok=initFirebase();
+  if(ok){
+    await initBoardData();
+    subscribeBoard();
+  } else {
+    loadFallback();renderBoard();
+  }
   updateVoteCounter();
-  renderBoard();
-  startPoll();
-}
-
-/* ── POLLING (re-reads localStorage every 5s — works if all on same device, or as a refresh prompt) ── */
-function startPoll(){
-  if(pollTimer)clearInterval(pollTimer);
-  pollTimer=setInterval(()=>{
-    loadLocal();
-    renderBoard();
-    if(sumVis)renderSum();
-    if(logVis)renderLog();
-    const sl=document.getElementById("synclbl");
-    if(sl)sl.textContent="&#9679; "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  },5000);
 }
 
 /* ── MODE ── */
-function setMode(m){
+window.setMode=function(m){
   mode=m;
   document.getElementById("edbtn").classList.toggle("on",m==="edit");
   document.getElementById("vobtn").classList.toggle("on",m==="vote");
@@ -315,15 +425,24 @@ function setMode(m){
     ?"Click + add to place a skill in any cell"
     :"Click a sticky note to cast your vote (3 per person)";
   renderBoard();
-}
+};
+
 function updateVoteCounter(){
   const rem=3-(votes[currentUser]||[]).length;
   const el=document.getElementById("vleft");
   if(el)el.textContent=rem;
 }
 
+/* ── CONFIRM BANNER ── */
+window.hideBanner=function(){document.getElementById("cbanner").style.display="none";};
+function showBanner(msg,onYes){
+  document.getElementById("ctext").textContent=msg;
+  document.getElementById("cyes").onclick=()=>{hideBanner();onYes();};
+  document.getElementById("cbanner").style.display="flex";
+}
+
 /* ── VOTE ── */
-function voteNote(id){
+window.voteNote=async function(id){
   if(mode!=="vote")return;
   const n=notes.find(x=>x.id===id);if(!n)return;
   if(!votes[currentUser])votes[currentUser]=[];
@@ -333,68 +452,55 @@ function voteNote(id){
   else{if(mv.length>=3)return;mv.push(id);n.v++;}
   votes[currentUser]=mv;
   updateVoteCounter();
-  saveLocal();renderBoard();
-  if(sumVis)renderSum();
-  if(logVis)renderLog();
-}
+  await saveBoard();
+};
 
 /* ── ADD / DELETE ── */
-function startAdd(a,l){
+window.startAdd=function(a,l){
   if(mode!=="edit")return;
   editCell={a,l};renderBoard();
   const inp=document.getElementById("inp-"+a+"-"+l);
   if(inp)inp.focus();
-}
-function commitNote(a,l){
+};
+window.commitNote=async function(a,l){
   const inp=document.getElementById("inp-"+a+"-"+l);if(!inp)return;
   const t=inp.value.trim();
-  if(t){notes.push({id:nid++,t,l,a,v:0});}
+  if(t)notes.push({id:nid++,t,l,a,v:0});
   editCell=null;renderBoard();
-  if(t)saveLocal();
+  if(t)await saveBoard();
   if(sumVis)renderSum();
-}
-function delNote(id){
+};
+window.delNote=async function(id){
   notes=notes.filter(n=>n.id!==id);
   Object.keys(votes).forEach(u=>{votes[u]=(votes[u]||[]).filter(x=>x!==id);});
-  saveLocal();renderBoard();
+  await saveBoard();
   if(sumVis)renderSum();
-}
+};
 
-/* ── CUSTOM CONFIRM BANNER (replaces native confirm() which is blocked in iframes) ── */
-function showBanner(msg,onYes){
-  const b=document.getElementById("cbanner");
-  document.getElementById("cbannertext").textContent=msg;
-  document.getElementById("cyes").onclick=()=>{hideBanner();onYes();};
-  b.style.display="flex";
-}
-function hideBanner(){
-  document.getElementById("cbanner").style.display="none";
-}
-
-/* ── RESET ── */
-function doResetVotes(){
-  showBanner("Reset all votes? This cannot be undone.",()=>{
+/* ── RESET ACTIONS ── */
+window.askReset=function(){
+  showBanner("Reset all votes? This cannot be undone.",async()=>{
     notes.forEach(n=>n.v=0);votes={};
-    updateVoteCounter();saveLocal();renderBoard();
+    updateVoteCounter();await saveBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-}
-function adminClear(){
+};
+window.askClear=function(){
   if(!isAdmin)return;
-  showBanner("Remove every note from the board and clear all votes?",()=>{
+  showBanner("Remove every note from the board and clear all votes?",async()=>{
     notes=[];votes={};nid=200;
-    updateVoteCounter();saveLocal();renderBoard();
+    updateVoteCounter();await saveBoard();renderBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-}
-function adminFullReset(){
+};
+window.askFullReset=function(){
   if(!isAdmin)return;
-  showBanner("Restore all pre-filled notes and clear all votes?",()=>{
+  showBanner("Restore all pre-filled notes and clear all votes?",async()=>{
     notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));votes={};nid=200;
-    updateVoteCounter();saveLocal();renderBoard();
+    updateVoteCounter();await saveBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-}
+};
 
 /* ── RENDER BOARD ── */
 function renderBoard(){
@@ -431,11 +537,11 @@ function renderBoard(){
 }
 
 /* ── SUMMARY ── */
-function toggleSum(){
+window.toggleSum=function(){
   sumVis=!sumVis;
   document.getElementById("sumbox").style.display=sumVis?"block":"none";
   if(sumVis)renderSum();
-}
+};
 function renderSum(){
   const sg=document.getElementById("sumgrid");if(!sg)return;
   let h="";
@@ -455,11 +561,11 @@ function renderSum(){
 }
 
 /* ── VOTER LOG ── */
-function toggleLog(){
+window.toggleLog=function(){
   logVis=!logVis;
   document.getElementById("vlogbox").style.display=logVis?"block":"none";
   if(logVis)renderLog();
-}
+};
 function renderLog(){
   const body=document.getElementById("vlogbody");if(!body)return;
   const voters=Object.keys(votes).filter(u=>(votes[u]||[]).length>0);
@@ -467,31 +573,6 @@ function renderLog(){
   body.className="vlb";
   body.innerHTML=voters.map(u=>`<span class="vpill done">&#10003; ${u} (${(votes[u]||[]).length}/3)</span>`).join("");
 }
-
-document.getElementById("nmin").focus();
-  // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAvquUv80qhWYre6I5jV8TR0nqF8dU4ktE",
-  authDomain: "test-4043d.firebaseapp.com",
-  databaseURL: "https://test-4043d-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "test-4043d",
-  storageBucket: "test-4043d.firebasestorage.app",
-  messagingSenderId: "122614928987",
-  appId: "1:122614928987:web:95e6f33112e43934fed17e",
-  measurementId: "G-5PHQF0EDQN"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 </script>
-  
 </body>
 </html>
