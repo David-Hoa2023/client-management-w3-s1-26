@@ -1544,8 +1544,8 @@ function renderClusterChart(d){
   const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
   const tickColor=dark?"#888780":"#5F5E5A";
   const ctx=document.getElementById("chart-ratio").getContext("2d");
+  const NUM_ADS=ADS.length; // 6
 
-  // Update toggle chip state
   document.getElementById("cv-cluster")?.classList.toggle("on",clusterViewMode==="cluster");
   document.getElementById("cv-skills")?.classList.toggle("on",clusterViewMode==="skills");
 
@@ -1555,80 +1555,118 @@ function renderClusterChart(d){
   if(clusterViewMode==="cluster"){
     if(filterBar)filterBar.style.display="none";
     if(skillList)skillList.style.display="none";
-    // Sorted by votes desc
-    const sorted=[...d.semClusters].sort((a,b)=>b.votes-a.votes);
+
+    // Sort by vote share descending — same order as matrix
+    const sorted=[...d.semClusters].sort((a,b)=>b.votePct-a.votePct);
+
     chartRatio=new Chart(ctx,{
       type:"bar",
       data:{
         labels:sorted.map(c=>c.label),
         datasets:[
-          {label:"Skills (freq)",data:sorted.map(c=>c.entries),backgroundColor:sorted.map(c=>c.color+"55"),borderRadius:5,barThickness:20},
-          {label:"Votes",data:sorted.map(c=>c.votes),backgroundColor:sorted.map(c=>c.color),borderRadius:5,barThickness:20},
+          {
+            label:"Skill share % (frequency)",
+            data:sorted.map(c=>c.freqPct),
+            backgroundColor:sorted.map(c=>c.color+"44"),
+            borderColor:sorted.map(c=>c.color+"88"),
+            borderWidth:1,
+            borderRadius:5,barThickness:20
+          },
+          {
+            label:"Vote share % (impact)",
+            data:sorted.map(c=>c.votePct),
+            backgroundColor:sorted.map(c=>c.color),
+            borderRadius:5,barThickness:20
+          },
         ]
       },
       options:{
         indexAxis:"y",responsive:true,maintainAspectRatio:false,
         onClick:(e,els)=>{
           if(!els.length)return;
-          const cl=sorted[els[0].index];
           setClusterView("skills");
-          drillCluster(cl.id);
+          drillCluster(sorted[els[0].index].id);
         },
         plugins:{
           legend:{labels:{boxWidth:8,font:{size:10},color:tickColor}},
           tooltip:{cornerRadius:10,callbacks:{
-            label:ctx=>`${ctx.dataset.label}: ${ctx.raw}`,
+            label:ctx2=>{
+              const cl=sorted[ctx2.dataIndex];
+              if(ctx2.datasetIndex===0)return`Skill share: ${cl.freqPct}% (${cl.entries} skills)`;
+              return`Vote share: ${cl.votePct}% (${cl.votes} votes)`;
+            },
             afterBody:ctx2=>{
               const cl=sorted[ctx2[0].dataIndex];
-              return[`Ratio: ${cl.ratio}`,`Net gap: ${cl.gap>=0?"+":""}${cl.gap}`];
+              const diff=(cl.votePct-cl.freqPct).toFixed(1);
+              const sign=diff>=0?"+":"";
+              const tag=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
+              return[`${tag}: ${sign}${diff}%`,`Ratio: ${cl.ratio} · Click to drill in`];
             }
           }},
-          datalabels:{anchor:"end",align:"end",font:{size:10,weight:"bold"},clip:false,offset:3,
-            color:ctx=>sorted[ctx.dataIndex].color,
-            formatter:v=>v===0?"":v}
+          datalabels:{
+            anchor:"end",align:"end",font:{size:10,weight:"bold"},clip:false,offset:3,
+            color:ctx2=>sorted[ctx2.dataIndex].color,
+            formatter:v=>v===0?"":v+"%"
+          }
         },
-        layout:{padding:{right:32}},
+        layout:{padding:{right:40}},
         scales:{
-          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+          x:{
+            grid:{color:gridColor},
+            ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
+            title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
+          },
           y:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
         }
       },
       plugins:[ChartDataLabels]
     });
-    // Add hint
-    if(skillList){skillList.style.display="block";skillList.innerHTML=
-      `<p style="font-size:10px;color:var(--text3);text-align:center;padding:6px">Click a cluster bar to explore its individual skills</p>`;}
+    if(skillList){
+      skillList.style.display="block";
+      skillList.innerHTML=`<p style="font-size:10px;color:var(--text3);text-align:center;padding:6px">Click a cluster bar to explore its individual skills →</p>`;
+    }
 
   }else{
-    // Individual skills view
+    // ── Individual skills view ──
     if(filterBar)filterBar.style.display="flex";
-    // Build cluster chips
+
     const chips=SKILL_CLUSTERS.map(cl=>
       `<button class="qf-chip${selectedSkillCluster===cl.id?" on":""}" onclick="drillCluster('${cl.id}')"
         style="font-size:10px;padding:2px 9px;${selectedSkillCluster===cl.id?`background:${cl.color};border-color:${cl.color};color:#fff`:`color:${cl.color};border-color:${cl.color}`}">${cl.icon} ${cl.label}</button>`
     ).join("");
     filterBar.innerHTML=`<button class="qf-chip${!selectedSkillCluster?" on":""}" onclick="drillCluster(null)" style="font-size:10px;padding:2px 9px">All clusters</button>${chips}`;
 
-    // Get skills for selected cluster (or all)
-    let skills=selectedSkillCluster
+    const skills=selectedSkillCluster
       ? d.annotated.filter(n=>n.cluster===selectedSkillCluster)
       : d.annotated;
-    // Deduplicate by skill text, summing votes and counting frequency
+
+    // Deduplicate by skill text, summing votes and counting ad mentions
     const skillMap={};
     skills.forEach(n=>{
       const key=n.t.toLowerCase().trim();
       if(!skillMap[key]){
-        const cl=SKILL_CLUSTERS.find(c=>c.id===n.cluster)||{color:"#94a3b8",label:"Other"};
+        const cl=SKILL_CLUSTERS.find(c=>c.id===n.cluster)||{color:"#94a3b8"};
         skillMap[key]={label:n.t,freq:0,votes:0,lane:n.l,cluster:n.cluster,color:cl.color};
       }
       skillMap[key].freq++;
       skillMap[key].votes+=(n.v||0);
     });
-    const skillArr=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq).slice(0,20);
+
+    // Normalise: freq → % of ads (max 6 = 100%); votes → % of total votes
+    const totalV=d.resolvedVotes||1;
+    const skillArr=Object.values(skillMap)
+      .map(s=>({
+        ...s,
+        freqPct:+(s.freq/NUM_ADS*100).toFixed(1),
+        votePct:+(s.votes/totalV*100).toFixed(1)
+      }))
+      .sort((a,b)=>b.votePct-a.votePct||b.freqPct-a.freqPct)
+      .slice(0,20);
 
     if(!skillArr.length){
       if(skillList){skillList.style.display="block";skillList.innerHTML=`<p style="font-size:11px;color:var(--text3);padding:8px">No skills in this cluster yet.</p>`;}
-      chartRatio=new Chart(ctx,{type:"bar",data:{labels:[],datasets:[]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false}}}});
+      chartRatio=new Chart(ctx,{type:"bar",data:{labels:[],datasets:[]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false}}}});
       return;
     }
 
@@ -1637,8 +1675,20 @@ function renderClusterChart(d){
       data:{
         labels:skillArr.map(s=>s.label),
         datasets:[
-          {label:"Mentions",data:skillArr.map(s=>s.freq),backgroundColor:skillArr.map(s=>s.color+"55"),borderRadius:5,barThickness:16},
-          {label:"Votes",data:skillArr.map(s=>s.votes),backgroundColor:skillArr.map(s=>s.color),borderRadius:5,barThickness:16},
+          {
+            label:"Ad coverage % (freq)",
+            data:skillArr.map(s=>s.freqPct),
+            backgroundColor:skillArr.map(s=>s.color+"44"),
+            borderColor:skillArr.map(s=>s.color+"88"),
+            borderWidth:1,
+            borderRadius:5,barThickness:16
+          },
+          {
+            label:"Vote share % (impact)",
+            data:skillArr.map(s=>s.votePct),
+            backgroundColor:skillArr.map(s=>s.color),
+            borderRadius:5,barThickness:16
+          },
         ]
       },
       options:{
@@ -1646,21 +1696,34 @@ function renderClusterChart(d){
         plugins:{
           legend:{labels:{boxWidth:8,font:{size:10},color:tickColor}},
           tooltip:{cornerRadius:10,callbacks:{
-            label:ctx=>`${ctx.dataset.label}: ${ctx.raw}`,
+            label:ctx2=>{
+              const s=skillArr[ctx2.dataIndex];
+              if(ctx2.datasetIndex===0)return`Ad coverage: ${s.freqPct}% (${s.freq}/${NUM_ADS} ads)`;
+              return`Vote share: ${s.votePct}% (${s.votes} votes)`;
+            },
             afterBody:ctx2=>{
-              const s=skillArr[ctx2[0].dataIndex];
+              const s=skillArr[ctx2.dataIndex];
+              const diff=(s.votePct-s.freqPct).toFixed(1);
+              const sign=diff>=0?"+":"";
+              const tag=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
               const laneName={hard:"Hard skill",soft:"Soft skill",know:"Knowledge"}[s.lane]||s.lane;
               const clName=SKILL_CLUSTERS.find(c=>c.id===s.cluster)?.label||"Other";
-              return[laneName,`Cluster: ${clName}`];
+              return[`${tag}: ${sign}${diff}%`,laneName,`Cluster: ${clName}`];
             }
           }},
-          datalabels:{anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
-            color:ctx=>skillArr[ctx.dataIndex].color,
-            formatter:v=>v===0?"":v}
+          datalabels:{
+            anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
+            color:ctx2=>skillArr[ctx2.dataIndex].color,
+            formatter:v=>v===0?"":v+"%"
+          }
         },
-        layout:{padding:{right:28,top:4}},
+        layout:{padding:{right:36,top:4}},
         scales:{
-          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+          x:{
+            grid:{color:gridColor},
+            ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
+            title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
+          },
           y:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"},maxTicksLimit:20}},
         }
       },
