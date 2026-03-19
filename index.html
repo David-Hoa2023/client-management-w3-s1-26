@@ -361,60 +361,10 @@
       </div>
     </div>
 
-    <!-- Strategic Report (hidden by default) -->
+    <!-- Strategic Report (hidden by default, rendered dynamically) -->
     <div id="stratreport">
-      <div class="strat-inner">
-        <div>
-          <p class="strat-h">🎭 Voter Persona Inferences</p>
-          <div class="persona-card">
-            <div class="persona-name">⭐ The Foundationalist</div>
-            <div class="persona-sub">Top votes: Time Mgmt, Fundamentals</div>
-            <div class="persona-desc">Students &amp; early-career voters focusing on efficiency and core theory — prefer skills they can practise immediately.</div>
-          </div>
-          <div class="persona-card">
-            <div class="persona-name">🔍 The Analytical Specialist</div>
-            <div class="persona-sub">Top votes: Research &amp; Market Analysis</div>
-            <div class="persona-desc">Voters who value data interpretation and strategic positioning — drawn to measurable, portfolio-ready outputs.</div>
-          </div>
-          <div class="persona-card">
-            <div class="persona-name">📈 The Adaptability Seeker</div>
-            <div class="persona-sub">Top votes: Teamwork, Multitasking</div>
-            <div class="persona-desc">Voters prioritising &ldquo;survivability&rdquo; in high-pressure agency environments — value versatility over specialism.</div>
-          </div>
-          <p class="strat-h" style="margin-top:1rem">🚨 Critical Blind Spots</p>
-          <div class="blind-grid">
-            <div class="blind-item"><div class="bi-t">💻 Tech &amp; AI</div><p>Listed across ads but rarely prioritised by voters.</p></div>
-            <div class="blind-item"><div class="bi-t">💰 Finance</div><p>Budget &amp; P&L skills get low vote weight across classes.</p></div>
-            <div class="blind-item"><div class="bi-t">⚖️ Compliance</div><p>Regulations &amp; legal ethics consistently under-voted.</p></div>
-          </div>
-        </div>
-        <div>
-          <div class="smart-box">
-            <h3>📋 SMART Action Plan</h3>
-            <div class="smart-obj">
-              <h4>Hard Skill Mastery</h4>
-              <p>Master analytics tools (Google Analytics / AI Prompt Engineering) by completing a certified course.</p>
-              <div class="smart-criteria">
-                <div class="smart-row"><span class="smart-k">S</span><span class="smart-v">Complete Google Analytics 4 (GA4) certification.</span></div>
-                <div class="smart-row"><span class="smart-k">M</span><span class="smart-v">Achieve 80%+ on the final assessment.</span></div>
-                <div class="smart-row"><span class="smart-k">A</span><span class="smart-v">Use free Google Skillshop modules.</span></div>
-                <div class="smart-row"><span class="smart-k">R</span><span class="smart-v">Fixes the 0-vote tech gap identified in the data.</span></div>
-                <div class="smart-row"><span class="smart-k">T</span><span class="smart-v">Within the next 8 weeks.</span></div>
-              </div>
-            </div>
-            <div class="smart-obj">
-              <h4>Commercial Awareness</h4>
-              <p>Bridge the financial literacy gap by training on P&amp;L management and campaign ROI reporting.</p>
-              <div class="smart-criteria">
-                <div class="smart-row"><span class="smart-k">S</span><span class="smart-v">Attend 3 Finance-for-Marketing workshops or webinars.</span></div>
-                <div class="smart-row"><span class="smart-k">M</span><span class="smart-v">Create a mock ROI model for a $50k campaign.</span></div>
-                <div class="smart-row"><span class="smart-k">A</span><span class="smart-v">Collaborate with university business mentors.</span></div>
-                <div class="smart-row"><span class="smart-k">R</span><span class="smart-v">Vital for moving from junior to management level.</span></div>
-                <div class="smart-row"><span class="smart-k">T</span><span class="smart-v">By the end of this semester.</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div id="strat-inner-content">
+        <!-- populated by renderStratReport() -->
       </div>
     </div>
 
@@ -1430,6 +1380,190 @@ function toggleStrat(){
   const btn=document.getElementById("stratbtn");
   btn.classList.toggle("on",stratVis);
   btn.textContent=stratVis?"✕ Close Report":"💡 Strategic Report";
+  if(stratVis)renderStratReport();
+}
+
+/* ── Dynamic Strategic Report ── */
+function renderStratReport(){
+  const d=getDashData();
+  const container=document.getElementById("strat-inner-content");
+  if(!container)return;
+
+  // ── 1. Rank clusters by normalised over/under-index (votePct - freqPct) ──
+  const ranked=[...d.semClusters]
+    .filter(c=>c.entries>0)
+    .sort((a,b)=>(b.votePct-b.freqPct)-(a.votePct-a.freqPct));
+
+  const overIndexed =ranked.filter(c=>(c.votePct-c.freqPct)>2);   // vote share clearly exceeds skill share
+  const underIndexed=ranked.filter(c=>(c.freqPct-c.votePct)>2);   // skill share clearly exceeds vote share
+  const balanced    =ranked.filter(c=>Math.abs(c.votePct-c.freqPct)<=2);
+
+  // ── 2. Top voted individual skills (deduplicated) ──
+  const skillMap={};
+  d.annotated.forEach(n=>{
+    const key=n.t.toLowerCase().trim();
+    if(!skillMap[key]){skillMap[key]={label:n.t,votes:0,freq:0,cluster:n.cluster};}
+    skillMap[key].votes+=(n.v||0);
+    skillMap[key].freq++;
+  });
+  const topSkills=Object.values(skillMap).sort((a,b)=>b.votes-a.votes).slice(0,6);
+  const zeroSkills=Object.values(skillMap).filter(s=>s.votes===0)
+    .sort((a,b)=>b.freq-a.freq).slice(0,3);
+
+  // ── 3. Persona inference: top 3 over-indexed clusters → persona archetype ──
+  const PERSONA_MAP={
+    client:  {icon:"🤝",name:"The Relationship Builder",   desc:"Values face-to-face skills and client trust — likely aspiring account managers."},
+    strategy:{icon:"🎯",name:"The Strategic Thinker",      desc:"Drawn to research, data and brand positioning — portfolio-oriented voters."},
+    ops:     {icon:"⚙️",name:"The Operational Pragmatist", desc:"Prioritises delivery, deadlines and financial literacy — reliability-focused."},
+    creative:{icon:"✨",name:"The Creative Advocate",      desc:"Champions storytelling and content — likely from creative or PR tracks."},
+    language:{icon:"📜",name:"The Compliance-Aware Voter", desc:"Attentive to language, regulation and ethics — globally mobile mindset."},
+    other:   {icon:"📌",name:"The Generalist Explorer",    desc:"Distributes votes broadly — values breadth over depth."},
+  };
+
+  const personas=overIndexed.slice(0,3).map(c=>{
+    const p=PERSONA_MAP[c.id]||PERSONA_MAP.other;
+    const diff=(c.votePct-c.freqPct).toFixed(1);
+    const topSk=Object.values(skillMap)
+      .filter(s=>s.cluster===c.id)
+      .sort((a,b)=>b.votes-a.votes).slice(0,2).map(s=>s.label).join(", ")||"—";
+    return`<div class="persona-card">
+      <div class="persona-name">${p.icon} ${p.name}</div>
+      <div class="persona-sub">Driven by: ${c.label} · over-indexed by +${diff}%</div>
+      <div class="persona-sub" style="margin-top:2px">Top voted: ${topSk}</div>
+      <div class="persona-desc">${p.desc}</div>
+    </div>`;
+  }).join("") || `<div class="persona-card"><div class="persona-desc">Not enough vote data yet — run the voting round first.</div></div>`;
+
+  // ── 4. Blind spots: under-indexed clusters + zero-vote top skills ──
+  const blindItems=underIndexed.slice(0,3).map(c=>{
+    const diff=(c.freqPct-c.votePct).toFixed(1);
+    return`<div class="blind-item">
+      <div class="bi-t">${c.icon} ${c.label}</div>
+      <p>${c.entries} skills listed, only ${c.votePct}% vote share — under-indexed by ${diff}%.</p>
+    </div>`;
+  });
+  // Pad with zero-vote skills if fewer than 3 blind spots
+  zeroSkills.forEach(s=>{
+    if(blindItems.length>=3)return;
+    const cl=SKILL_CLUSTERS.find(c=>c.id===s.cluster);
+    blindItems.push(`<div class="blind-item">
+      <div class="bi-t">${cl?cl.icon:"📌"} ${s.label}</div>
+      <p>Listed in ${s.freq} ad${s.freq!==1?"s":""} but received zero votes.</p>
+    </div>`);
+  });
+  const blindHtml=blindItems.length
+    ? `<div class="blind-grid">${blindItems.join("")}</div>`
+    : `<div class="blind-item" style="grid-column:1/-1"><p>No significant blind spots detected — vote distribution is fairly balanced.</p></div>`;
+
+  // ── 5. SMART goals: one per top under-indexed cluster ──
+  const smartTargets=underIndexed.slice(0,2);
+  // Fallback: lowest vote-share clusters that have entries
+  if(smartTargets.length<2){
+    ranked.filter(c=>!smartTargets.find(t=>t.id===c.id)&&c.entries>0)
+      .slice(0,2-smartTargets.length).forEach(c=>smartTargets.push(c));
+  }
+
+  const SMART_TEMPLATES={
+    client:{
+      goal:"Strengthen client-facing communication skills to close the gap between how often these skills appear in job ads and how much students currently prioritise them.",
+      S:"Practise a full client briefing and debrief roleplay with a peer.",
+      M:"Complete 2 mock client meetings recorded for self-review.",
+      A:"Use in-class Speed Decode debrief as the first rehearsal.",
+      R:"Client relations is the most under-voted cluster vs. ad frequency.",
+      T:"Before the next assignment submission."
+    },
+    strategy:{
+      goal:"Build research and strategic analysis capability to match the high frequency of these skills across all six job ads.",
+      S:"Conduct a competitor audit using at least 3 data sources.",
+      M:"Produce a 500-word strategic brief with supporting data.",
+      A:"Use publicly available market reports and brand case studies.",
+      R:"Strategy & Research appears in every ad but is frequently under-voted.",
+      T:"Within 3 weeks."
+    },
+    ops:{
+      goal:"Develop project planning and commercial literacy to meet agency expectations for junior account managers.",
+      S:"Build a project timeline and basic budget model for a mock campaign.",
+      M:"Timeline covers all 5 production phases; budget accounts for 3 cost types.",
+      A:"Use free templates from Asana or Google Sheets.",
+      R:"Project & Operations skills are listed frequently but attract below-average votes.",
+      T:"By end of semester."
+    },
+    creative:{
+      goal:"Strengthen content strategy and storytelling skills to address the gap in student vote priority vs. industry demand.",
+      S:"Write and pitch one original creative concept with a rationale.",
+      M:"Receive structured peer feedback against a 3-point rubric.",
+      A:"Use in-class brief as the brief source.",
+      R:"Creative & Content is consistently under-voted relative to its ad coverage.",
+      T:"Within 2 weeks."
+    },
+    language:{
+      goal:"Address the language and compliance knowledge gap by building awareness of relevant regulations and multilingual communication norms.",
+      S:"Review advertising regulations for one market covered in the Speed Decode ads.",
+      M:"Summarise 3 key compliance rules and their practical implications.",
+      A:"Use publicly available regulatory guidelines (e.g. ACCC, ASA, APEC).",
+      R:"Language & Compliance skills appear across ads but receive consistently low votes.",
+      T:"Before the next tutorial session."
+    },
+    other:{
+      goal:"Build breadth across under-represented skill areas identified in the Speed Decode data.",
+      S:"Choose one zero-vote skill from the board and develop a concrete plan to acquire it.",
+      M:"Produce one piece of evidence (project, certificate, reflection) within the semester.",
+      A:"Use available course resources and industry contacts.",
+      R:"Zero-vote skills represent a gap between industry expectation and student awareness.",
+      T:"By end of semester."
+    }
+  };
+
+  const smartHtml=smartTargets.map((cl,i)=>{
+    const t=SMART_TEMPLATES[cl.id]||SMART_TEMPLATES.other;
+    const topSk=Object.values(skillMap).filter(s=>s.cluster===cl.id)
+      .sort((a,b)=>b.freq-a.freq).slice(0,3).map(s=>s.label).join(", ");
+    const diff=(cl.freqPct-cl.votePct).toFixed(1);
+    return`<div class="smart-obj">
+      <h4>${cl.icon||"📌"} ${cl.label} <span style="font-size:9px;opacity:.6;font-weight:600">under-indexed by ${diff}%</span></h4>
+      <p>${t.goal}${topSk?` Key skills: <em>${topSk}</em>.`:""}</p>
+      <div class="smart-criteria">
+        <div class="smart-row"><span class="smart-k">S</span><span class="smart-v">${t.S}</span></div>
+        <div class="smart-row"><span class="smart-k">M</span><span class="smart-v">${t.M}</span></div>
+        <div class="smart-row"><span class="smart-k">A</span><span class="smart-v">${t.A}</span></div>
+        <div class="smart-row"><span class="smart-k">R</span><span class="smart-v">${t.R}</span></div>
+        <div class="smart-row"><span class="smart-k">T</span><span class="smart-v">${t.T}</span></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── 6. Summary stat strip ──
+  const topCluster=ranked[0];
+  const bottomCluster=[...ranked].reverse()[0];
+  const summaryStrip=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem">
+    ${[
+      {label:"Total skills",val:d.totalNotes,sub:"across all clusters"},
+      {label:"Total votes",val:d.resolvedVotes,sub:`${d.uniqueVoters} voters`},
+      {label:"Top cluster",val:topCluster?topCluster.label:"—",sub:topCluster?`${topCluster.votePct}% vote share`:""},
+      {label:"Lowest priority",val:bottomCluster?bottomCluster.label:"—",sub:bottomCluster?`${bottomCluster.votePct}% vote share`:""},
+    ].map(s=>`<div style="background:rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;flex:1;min-width:100px">
+      <div style="font-size:16px;font-weight:900;color:#fff;line-height:1">${s.val}</div>
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#c4b5fd;margin-top:2px">${s.label}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.5)">${s.sub}</div>
+    </div>`).join("")}
+  </div>`;
+
+  container.innerHTML=`<div class="strat-inner">
+    <div>
+      ${summaryStrip}
+      <p class="strat-h">🎭 Voter Persona Inferences</p>
+      ${personas}
+      <p class="strat-h" style="margin-top:1.25rem">🚨 Critical Blind Spots</p>
+      ${blindHtml}
+    </div>
+    <div>
+      <div class="smart-box">
+        <h3>📋 SMART Action Plan</h3>
+        <p style="font-size:10px;color:#5F5E5A;margin-bottom:.75rem">Targets the ${smartTargets.length} most under-indexed cluster${smartTargets.length!==1?"s":""} based on live vote data.</p>
+        ${smartHtml||`<p style="font-size:11px;color:#888">Cast votes first to generate personalised SMART goals.</p>`}
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderDash(){
