@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Speed Decode — Frequency Board</title>
+<title>Speed Decode — Shared Frequency Board</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
     --amber-50:#FAEEDA;--amber-800:#633806;
@@ -28,7 +29,6 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
 
-  /* GATE */
   .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
   .gcard{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:1.75rem;max-width:340px;width:100%;text-align:center}
   .gcard h2{font-size:16px;font-weight:500;margin-bottom:6px}
@@ -42,7 +42,6 @@
   #adminpanel{display:none;margin-top:12px;border-top:0.5px solid var(--border2);padding-top:12px;text-align:left}
   #adminpanel label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px}
 
-  /* APP */
   #app{display:none;min-height:100vh;flex-direction:column}
   .tb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--bg);border-bottom:0.5px solid var(--border2);position:sticky;top:0;z-index:10}
   .tbtn{padding:4px 11px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text);font-size:12px;cursor:pointer;white-space:nowrap}
@@ -57,23 +56,13 @@
   .apill{font-size:11px;padding:3px 9px;border-radius:20px;background:#FAECE7;border:0.5px solid #F0997B;color:#712B13;display:none}
   .vc{font-size:12px;color:var(--text2);padding:4px 10px;border-radius:var(--radius);background:var(--bg2);white-space:nowrap;display:none}
   .vc b{color:var(--text)}
-  .syncdot{width:7px;height:7px;border-radius:50%;background:#5DCAA5;flex-shrink:0}
-  .syncdot.err{background:#D85A30}
-  .synclbl{font-size:11px;color:var(--text3)}
+  .sync{font-size:11px;color:var(--text3);padding:4px 8px}
 
-  /* CONFIRM BANNER */
-  #cbanner{display:none;background:#FAECE7;border:0.5px solid #F0997B;border-radius:var(--radius);padding:8px 14px;margin:8px 1rem 0;align-items:center;gap:10px;flex-wrap:wrap}
-  #cbanner p{font-size:12px;color:#712B13;flex:1;margin:0}
-  #cbanner .yes{padding:4px 12px;border-radius:var(--radius);border:none;background:#993C1D;color:#fff;font-size:12px;cursor:pointer}
-  #cbanner .no{padding:4px 12px;border-radius:var(--radius);border:0.5px solid #993C1D;background:transparent;color:#993C1D;font-size:12px;cursor:pointer}
-
-  /* LEGEND */
   .lgnd{display:flex;gap:10px;padding:7px 12px;flex-wrap:wrap;border-bottom:0.5px solid var(--border)}
   .leg{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2)}
   .lsw{width:11px;height:11px;border-radius:2px;flex-shrink:0}
   .dot{width:6px;height:6px;border-radius:50%;background:var(--coral-500);display:inline-block}
 
-  /* BOARD */
   .bwrap{overflow-x:auto;padding:1rem 1rem 0}
   .board{display:grid;grid-template-columns:72px repeat(6,1fr);min-width:720px;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);overflow:hidden}
   .ch{padding:7px 7px 6px;background:var(--bg2);border-bottom:0.5px solid var(--border2);border-right:0.5px solid var(--border);font-size:11px;font-weight:500;color:var(--text)}
@@ -103,7 +92,6 @@
   .ninput{width:100%;padding:3px 5px;font-size:11px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text);outline:none}
   .ninput:focus{border-color:#534AB7}
 
-  /* SUMMARY */
   .sum{margin:1rem;border:0.5px solid var(--border2);border-radius:var(--radius-lg);overflow:hidden;display:none}
   .sumh{padding:9px 12px;background:var(--bg2);border-bottom:0.5px solid var(--border2);font-size:12px;font-weight:500;display:flex;justify-content:space-between}
   .sumh span{font-size:11px;color:var(--text2);font-weight:400}
@@ -121,7 +109,6 @@
   .sv{font-size:10px;color:var(--text2);white-space:nowrap}
   .vb{color:#D85A30;margin-left:2px}
 
-  /* VOTER LOG */
   .vlog{margin:0 1rem 1rem;border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;display:none}
   .vlh{padding:8px 12px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:12px;font-weight:500}
   .vlb{padding:10px 12px;display:flex;flex-wrap:wrap;gap:5px}
@@ -130,16 +117,110 @@
   @media(prefers-color-scheme:dark){.vpill.done{background:#04342C;border-color:#1D9E75;color:#9FE1CB}}
 
   .footer{padding:1rem 1rem 2rem;font-size:11px;color:var(--text3);text-align:center;line-height:1.6}
-  #setupguide{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);margin:1rem;padding:1.25rem;font-size:13px;line-height:1.7;color:var(--text2)}
-  #setupguide strong{color:var(--text);font-weight:500}
-  #setupguide code{background:var(--bg2);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px;color:var(--text)}
-  #setupguide ol{padding-left:1.25rem;margin-top:8px}
-  #setupguide li{margin-bottom:6px}
+
+  /* ── DASHBOARD ── */
+  #dashpanel{display:none;flex-direction:column;padding:1.25rem 1rem 3rem;gap:1.5rem;background:var(--bg3);min-height:calc(100vh - 80px)}
+  .dash-section{background:var(--bg);border:0.5px solid var(--border2);border-radius:16px;padding:1.25rem;overflow:hidden}
+  .dash-h{font-size:13px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:6px;margin-bottom:1rem}
+  .dash-h .dico{width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+  .dash-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border-bottom:0.5px solid var(--border);padding-bottom:1rem;margin-bottom:1rem}
+  .dash-hdr h1{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.02em;line-height:1.2}
+  .dash-hdr p{font-size:11px;color:var(--text2);margin-top:3px;font-style:italic}
+  .btn-strategic{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:6px 12px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg);color:#534AB7;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .btn-strategic.on{background:#534AB7;color:#fff;border-color:#534AB7}
+  .btn-strategic:hover{opacity:.88}
+
+  /* KPI cards */
+  .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+  @media(max-width:460px){.kpi-row{grid-template-columns:1fr}}
+  .kpi{background:var(--bg);border:0.5px solid var(--border2);border-radius:12px;padding:1rem;text-align:center}
+  .kpi .kn{font-size:28px;font-weight:900;color:var(--text);line-height:1}
+  .kpi .kl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-top:4px}
+
+  /* Chart containers */
+  .chart-wrap{position:relative;width:100%;height:240px}
+  .chart-wrap.tall{height:280px}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  @media(max-width:560px){.chart-grid{grid-template-columns:1fr}}
+
+  /* Cluster cards */
+  .cluster-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:.75rem}
+  @media(max-width:560px){.cluster-grid{grid-template-columns:1fr}}
+  .cl-card{border:0.5px solid var(--border2);border-radius:12px;padding:.9rem;background:var(--bg);cursor:pointer;transition:all .18s}
+  .cl-card:hover{border-color:var(--text3);box-shadow:0 4px 16px rgba(0,0,0,.07)}
+  .cl-card.active{background:#1e1e1c;border-color:#1e1e1c;color:#F1EFE8}
+  .cl-card .cl-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:.6rem}
+  .cl-card .cl-name{font-size:12px;font-weight:700;margin-bottom:.5rem}
+  .cl-card .cl-stats{display:flex;gap:.75rem;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding-top:.5rem;border-top:0.5px solid rgba(128,128,128,.15)}
+  .cl-card .cl-stats .cs{display:flex;flex-direction:column;gap:1px}
+  .cl-card .cl-stats .cs-v{font-size:16px;font-weight:800;line-height:1}
+  .cl-ratio{font-size:9px;padding:2px 6px;border-radius:20px;font-weight:700;margin-left:auto;align-self:flex-start}
+  .cl-ratio.hi{background:#d1fae5;color:#065f46}.cl-ratio.lo{background:#fef3c7;color:#92400e}.cl-ratio.mid{background:#e0e7ff;color:#3730a3}
+
+  /* Detail table */
+  #cldetail{display:none;background:var(--bg);border:0.5px solid var(--border2);border-radius:12px;overflow:hidden}
+  .cldet-hdr{background:#1e1e1c;color:#F1EFE8;padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700}
+  .cldet-hdr button{background:rgba(255,255,255,.1);border:none;color:#F1EFE8;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1}
+  .cldet-hdr button:hover{background:rgba(255,255,255,.2)}
+  .dttable{width:100%;border-collapse:collapse;font-size:11px}
+  .dttable th{background:var(--bg2);padding:6px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);border-bottom:0.5px solid var(--border2)}
+  .dttable td{padding:7px 10px;border-bottom:0.5px solid var(--border);color:var(--text)}
+  .dttable tr:last-child td{border-bottom:none}
+  .dttable tr:hover td{background:var(--bg2)}
+  .type-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:9px;font-weight:700;text-transform:uppercase}
+  .type-badge.hard{background:var(--amber-50);color:var(--amber-800)}
+  .type-badge.soft{background:var(--teal-50);color:var(--teal-800)}
+  .type-badge.know{background:var(--purple-50);color:var(--purple-800)}
+  .vweight{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:22px;padding:0 5px;border-radius:6px;font-size:10px;font-weight:800}
+  .vweight.pos{background:#534AB7;color:#fff}
+  .vweight.zero{background:var(--bg2);color:var(--text3)}
+
+  /* Strategic report */
+  #stratreport{display:none;background:linear-gradient(135deg,#1e1a6e,#3b1f7a);border-radius:16px;padding:1.25rem;color:#F1EFE8;overflow:hidden}
+  .strat-inner{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+  @media(max-width:600px){.strat-inner{grid-template-columns:1fr}}
+  .strat-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;display:flex;align-items:center;gap:6px;color:#c4b5fd}
+  .persona-card{background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.12);border-radius:10px;padding:.75rem;margin-bottom:.5rem}
+  .persona-name{font-size:12px;font-weight:700;margin-bottom:2px}
+  .persona-sub{font-size:10px;color:rgba(255,255,255,.5);margin-bottom:4px}
+  .persona-desc{font-size:11px;color:rgba(255,255,255,.75);line-height:1.4}
+  .blind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem}
+  .blind-item{background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.1);border-radius:8px;padding:.5rem .6rem}
+  .blind-item .bi-t{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#a5b4fc;margin-bottom:3px}
+  .blind-item p{font-size:10px;color:rgba(255,255,255,.7);line-height:1.3}
+  .smart-box{background:#fff;border-radius:12px;padding:1rem;color:#1e1e1c}
+  .smart-box h3{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#534AB7;margin-bottom:.75rem}
+  .smart-obj{margin-bottom:.9rem}
+  .smart-obj h4{font-size:11px;font-weight:700;color:#534AB7;margin-bottom:3px;display:flex;align-items:center;gap:5px}
+  .smart-obj h4::before{content:'';width:6px;height:6px;border-radius:50%;background:#534AB7;flex-shrink:0}
+  .smart-obj p{font-size:10px;color:#5F5E5A;line-height:1.4;margin-bottom:.5rem}
+  .smart-criteria{background:#f8f7f4;border-radius:8px;padding:.5rem .6rem;display:flex;flex-direction:column;gap:3px}
+  .smart-row{display:flex;gap:6px;font-size:10px}
+  .smart-k{font-weight:800;color:#534AB7;width:10px;flex-shrink:0;text-transform:uppercase}
+  .smart-v{color:#5F5E5A}
+
+  /* Per-ad breakdown */
+  .ad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+  @media(max-width:480px){.ad-grid{grid-template-columns:repeat(2,1fr)}}
+  .ad-card{border:0.5px solid var(--border2);border-radius:10px;padding:.7rem;background:var(--bg2)}
+  .ad-card .ac-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:1px}
+  .ac-loc{font-size:9px;color:var(--text3);margin-bottom:.5rem}
+  .ac-bars{display:flex;flex-direction:column;gap:3px}
+  .ac-bar-row{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:600}
+  .ac-bar-row .abl{width:30px;text-align:right;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+  .ac-bar-wrap{flex:1;height:5px;border-radius:3px;background:var(--bg3);overflow:hidden}
+  .ac-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+  .ac-bar-fill.hard{background:#BA7517}.ac-bar-fill.soft{background:#0F6E56}.ac-bar-fill.know{background:#534AB7}
+  .ac-votes{font-size:9px;color:var(--coral-500);font-weight:700;text-align:right;margin-top:3px}
+  .loading{padding:3rem;text-align:center;font-size:13px;color:var(--text2)}
+  #cbanner{display:none;background:#FAECE7;border:0.5px solid #F0997B;border-radius:var(--radius);padding:8px 14px;margin:8px 1rem 0;align-items:center;gap:10px;flex-wrap:wrap}
+  #cbanner p{font-size:12px;color:#712B13;flex:1;margin:0}
+  #cbanner .yes{padding:4px 12px;border-radius:var(--radius);border:none;background:#993C1D;color:#fff;font-size:12px;cursor:pointer}
+  #cbanner .no{padding:4px 12px;border-radius:var(--radius);border:0.5px solid #993C1D;background:transparent;color:#993C1D;font-size:12px;cursor:pointer}
 </style>
 </head>
 <body>
 
-<!-- GATE -->
 <div id="gate" class="gate">
   <div class="gcard">
     <div style="font-size:24px;margin-bottom:10px">&#128203;</div>
@@ -149,11 +230,11 @@
     <button class="gbtn" onclick="doJoin()">Join session</button>
     <div class="gerr" id="gerr"></div>
     <p style="margin-top:12px;font-size:11px;color:var(--text3)">Client Management · COMM2384/2767</p>
-    <span class="alink" onclick="toggleAdminPanel()">Admin login</span>
+    <span class="alink" onclick="toggleAdmin()">Admin login</span>
     <div id="adminpanel">
-      <label>Email</label>
+      <label for="auser">Email</label>
       <input class="ginput" id="auser" type="email" placeholder="admin email" autocomplete="off" style="margin-bottom:8px">
-      <label>Password</label>
+      <label for="apass">Password</label>
       <input class="ginput" id="apass" type="password" placeholder="password" autocomplete="off" onkeydown="if(event.key==='Enter')doAdminLogin()" style="margin-bottom:10px">
       <button class="gbtn" onclick="doAdminLogin()" style="background:#854F0B">Enter as admin</button>
       <div class="gerr" id="aerr"></div>
@@ -161,24 +242,24 @@
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
-  <div class="tb">
+  <div class="tb" id="tb">
     <button class="tbtn on" id="edbtn" onclick="setMode('edit')">Edit board</button>
     <button class="tbtn" id="vobtn" onclick="setMode('vote')">Vote mode</button>
     <div class="vc" id="vcount">Votes left: <b id="vleft">3</b></div>
     <div class="vsep"></div>
     <button class="tbtn" onclick="toggleSum()">Summary</button>
     <button class="tbtn" onclick="toggleLog()">Voter log</button>
-    <button class="tbtn red" onclick="askReset()">Reset votes</button>
-    <button class="tbtn adm" id="abtn1" onclick="askClear()">Clear all notes</button>
-    <button class="tbtn adm" id="abtn2" onclick="askFullReset()">Full reset</button>
-    <div class="syncdot" id="syncdot"></div>
-    <span class="synclbl" id="synclbl">Connecting...</span>
+    <div class="vsep"></div>
+    <button class="tbtn" id="dashbtn" onclick="toggleDash()" style="color:#534AB7;border-color:#534AB7">📊 Dashboard</button>
+    <button class="tbtn red" onclick="doResetVotes()">Reset votes</button>
+    <button class="tbtn adm" id="abtn1" onclick="adminClear()">Clear all notes</button>
+    <button class="tbtn adm" id="abtn2" onclick="adminFullReset()">Full reset</button>
+    <span class="sync" id="synclbl">&#9679; Live</span>
     <div class="upill" id="upill"></div>
     <div class="apill" id="apill">Admin</div>
   </div>
-  <div id="cbanner"><p id="ctext"></p><button class="yes" id="cyes">Yes, proceed</button><button class="no" onclick="hideBanner()">Cancel</button></div>
+  <div id="cbanner"><p id="cbannertext"></p><button class="yes" id="cyes">Yes, proceed</button><button class="no" onclick="hideBanner()">Cancel</button></div>
 
   <div class="lgnd">
     <div class="leg"><div class="lsw" style="background:#FAEEDA;border:0.5px solid #BA7517"></div>Hard skills</div>
@@ -188,42 +269,152 @@
     <span style="margin-left:auto;font-size:11px;color:var(--text3)" id="hintmsg">Click + add to place a skill</span>
   </div>
 
-  <div class="bwrap"><div class="board" id="bg"></div></div>
+  <div class="bwrap">
+    <div class="board" id="bg"></div>
+  </div>
 
   <div class="sum" id="sumbox">
     <div class="sumh"><span>Frequency summary</span><span>n/6 = ads · coral = votes</span></div>
     <div class="sg" id="sumgrid"></div>
   </div>
+
   <div class="vlog" id="vlogbox">
     <div class="vlh">Voter log</div>
     <div id="vlogbody"></div>
   </div>
-  <div class="footer">Board syncs live across all devices via Firebase. · COMM2384/2767 · Client Management</div>
+
+  <!-- ── DASHBOARD PANEL ── -->
+  <div id="dashpanel">
+
+    <!-- Header -->
+    <div class="dash-section">
+      <div class="dash-hdr">
+        <div>
+          <h1>Skill Investigator</h1>
+          <p>Live Voter Insight &amp; Engagement Analysis</p>
+        </div>
+        <button class="btn-strategic" id="stratbtn" onclick="toggleStrat()">💡 Strategic Report</button>
+      </div>
+    </div>
+
+    <!-- Strategic Report (hidden by default) -->
+    <div id="stratreport">
+      <div class="strat-inner">
+        <div>
+          <p class="strat-h">🎭 Voter Persona Inferences</p>
+          <div class="persona-card">
+            <div class="persona-name">⭐ The Foundationalist</div>
+            <div class="persona-sub">Top votes: Time Mgmt, Fundamentals</div>
+            <div class="persona-desc">Students &amp; early-career voters focusing on efficiency and core theory — prefer skills they can practise immediately.</div>
+          </div>
+          <div class="persona-card">
+            <div class="persona-name">🔍 The Analytical Specialist</div>
+            <div class="persona-sub">Top votes: Research &amp; Market Analysis</div>
+            <div class="persona-desc">Voters who value data interpretation and strategic positioning — drawn to measurable, portfolio-ready outputs.</div>
+          </div>
+          <div class="persona-card">
+            <div class="persona-name">📈 The Adaptability Seeker</div>
+            <div class="persona-sub">Top votes: Teamwork, Multitasking</div>
+            <div class="persona-desc">Voters prioritising &ldquo;survivability&rdquo; in high-pressure agency environments — value versatility over specialism.</div>
+          </div>
+          <p class="strat-h" style="margin-top:1rem">🚨 Critical Blind Spots</p>
+          <div class="blind-grid">
+            <div class="blind-item"><div class="bi-t">💻 Tech &amp; AI</div><p>Listed across ads but rarely prioritised by voters.</p></div>
+            <div class="blind-item"><div class="bi-t">💰 Finance</div><p>Budget &amp; P&L skills get low vote weight across classes.</p></div>
+            <div class="blind-item"><div class="bi-t">⚖️ Compliance</div><p>Regulations &amp; legal ethics consistently under-voted.</p></div>
+          </div>
+        </div>
+        <div>
+          <div class="smart-box">
+            <h3>📋 SMART Action Plan</h3>
+            <div class="smart-obj">
+              <h4>Hard Skill Mastery</h4>
+              <p>Master analytics tools (Google Analytics / AI Prompt Engineering) by completing a certified course.</p>
+              <div class="smart-criteria">
+                <div class="smart-row"><span class="smart-k">S</span><span class="smart-v">Complete Google Analytics 4 (GA4) certification.</span></div>
+                <div class="smart-row"><span class="smart-k">M</span><span class="smart-v">Achieve 80%+ on the final assessment.</span></div>
+                <div class="smart-row"><span class="smart-k">A</span><span class="smart-v">Use free Google Skillshop modules.</span></div>
+                <div class="smart-row"><span class="smart-k">R</span><span class="smart-v">Fixes the 0-vote tech gap identified in the data.</span></div>
+                <div class="smart-row"><span class="smart-k">T</span><span class="smart-v">Within the next 8 weeks.</span></div>
+              </div>
+            </div>
+            <div class="smart-obj">
+              <h4>Commercial Awareness</h4>
+              <p>Bridge the financial literacy gap by training on P&amp;L management and campaign ROI reporting.</p>
+              <div class="smart-criteria">
+                <div class="smart-row"><span class="smart-k">S</span><span class="smart-v">Attend 3 Finance-for-Marketing workshops or webinars.</span></div>
+                <div class="smart-row"><span class="smart-k">M</span><span class="smart-v">Create a mock ROI model for a $50k campaign.</span></div>
+                <div class="smart-row"><span class="smart-k">A</span><span class="smart-v">Collaborate with university business mentors.</span></div>
+                <div class="smart-row"><span class="smart-k">R</span><span class="smart-v">Vital for moving from junior to management level.</span></div>
+                <div class="smart-row"><span class="smart-k">T</span><span class="smart-v">By the end of this semester.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="kn" id="kpi-notes">—</div><div class="kl">Total Skills Noted</div></div>
+      <div class="kpi"><div class="kn" id="kpi-votes">—</div><div class="kl">Total Votes Cast</div></div>
+      <div class="kpi"><div class="kn" id="kpi-voters">—</div><div class="kl">Unique Voters</div></div>
+    </div>
+
+    <!-- Volume vs Value Matrix -->
+    <div class="dash-section">
+      <div class="dash-h"><span class="dico" style="background:#EEF2FF;color:#534AB7">📈</span> Volume vs. Value Matrix <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px;text-transform:none;letter-spacing:0">— Frequency (entries) vs. Voter Impact (votes)</span></div>
+      <div class="chart-wrap tall"><canvas id="chart-matrix"></canvas></div>
+    </div>
+
+    <!-- Ratio + Pie row -->
+    <div class="chart-grid">
+      <div class="dash-section">
+        <div class="dash-h"><span class="dico" style="background:#FFF7ED;color:#C2410C">⚡</span> Vote / Entry Ratio</div>
+        <div class="chart-wrap"><canvas id="chart-ratio"></canvas></div>
+      </div>
+      <div class="dash-section">
+        <div class="dash-h"><span class="dico" style="background:#F0FDF4;color:#15803D">🥧</span> Skill Type Mix</div>
+        <div class="chart-wrap"><canvas id="chart-pie"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Investigate Clusters -->
+    <div class="dash-section">
+      <div class="dash-h"><span class="dico" style="background:#F5F3FF;color:#7C3AED">🔎</span> Investigate Clusters</div>
+      <div class="cluster-grid" id="cluster-grid"></div>
+      <div id="cldetail">
+        <div class="cldet-hdr">
+          <span id="cldet-title">—</span>
+          <button onclick="closeCluster()">✕</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="dttable">
+            <thead><tr><th>Type</th><th>Skill</th><th>Ad</th><th style="text-align:center">Votes</th></tr></thead>
+            <tbody id="cldet-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-Ad Breakdown -->
+    <div class="dash-section">
+      <div class="dash-h"><span class="dico" style="background:#FFF1F2;color:#BE123C">🏢</span> Per-Agency Breakdown</div>
+      <div class="ad-grid" id="ad-grid"></div>
+    </div>
+
+    <div style="padding:.5rem;text-align:center;font-size:10px;color:var(--text3);font-style:italic;font-weight:600;letter-spacing:.04em;text-transform:uppercase">
+      Speed Decode Skill Investigator · v2.0 · COMM2384/2767 · Client Management
+    </div>
+  </div>
+
+  <div class="footer">
+    Board syncs every 5 seconds across all devices. Share this URL so every student joins the same live session.<br>
+    Admin can clear notes or reset votes from the toolbar. · COMM2384/2767 · Client Management
+  </div>
 </div>
 
-<!-- FIREBASE SDK -->
-<script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import{getDatabase,ref,onValue,set,get}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   STEP 1 — Paste your Firebase config here.
-   Go to console.firebase.google.com → your project →
-   Project settings → Your apps → SDK setup → Config
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-const FIREBASE_CONFIG={
-  apiKey:            "AIzaSyAvquUv80qhWYre6I5jV8TR0nqF8dU4ktE",
-  authDomain:        "test-4043d.firebaseapp.com",
-  databaseURL:       "https://test-4043d-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "test-4043d",
-  storageBucket:     "test-4043d.firebasestorage.app",
-  messagingSenderId: "122614928987",
-  appId:             "1:122614928987:web:95e6f33112e43934fed17e",
-};
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-const CONFIGURED=!FIREBASE_CONFIG.apiKey.includes("PASTE");
-
+<script>
 const ADS=[
   {id:1,co:"Dentsu Redder",loc:"Hanoi, VN"},
   {id:2,co:"Leo Burnett",loc:"HCMC, VN"},
@@ -258,113 +449,29 @@ const DEFAULT_NOTES=[
   {id:35,t:"Campaign metrics",l:"know",a:6,v:0},{id:36,t:"Client briefing",l:"know",a:2,v:0},
 ];
 
+const SK="sd_notes_v1",VK="sd_votes_v1";
 const ADMIN_USER="vietemt@gmail.com";
 const ADMIN_HASH=btoa("htdung71");
 
 let notes=[],votes={},nid=200;
 let currentUser=null,isAdmin=false;
 let mode="edit",editCell=null,sumVis=false,logVis=false;
-let db=null,boardRef=null,votesRef=null;
+let pollTimer=null;
 
-/* ── SETUP GUIDE (shown when Firebase not configured) ── */
-function showSetupGuide(){
-  document.getElementById("gate").style.display="none";
-  document.getElementById("app").style.display="flex";
-  document.getElementById("bg").closest(".bwrap").insertAdjacentHTML("afterend",`
-  <div id="setupguide">
-    <strong>Firebase setup required for live sync</strong>
-    <p style="margin-top:6px">To make the board shared across all devices, connect it to a free Firebase Realtime Database:</p>
-    <ol>
-      <li>Go to <strong>console.firebase.google.com</strong> and create a free project</li>
-      <li>In the project, click <strong>Build → Realtime Database → Create database</strong> (start in test mode)</li>
-      <li>Go to <strong>Project settings → Your apps → Add app (Web)</strong>, register it, copy the config object</li>
-      <li>Open <code>index.html</code> in a text editor, find the <code>FIREBASE_CONFIG</code> block near the bottom and paste your values in</li>
-      <li>Save and re-upload <code>index.html</code> to GitHub — the board will instantly sync across all devices</li>
-    </ol>
-    <p style="margin-top:8px;font-size:12px;color:var(--text3)">Until then the board works locally in this browser using localStorage.</p>
-  </div>`);
-  loadFallback();
-  renderBoard();
-  document.getElementById("syncdot").classList.add("err");
-  document.getElementById("synclbl").textContent="Local only — Firebase not configured";
-}
-
-/* ── FIREBASE INIT ── */
-function initFirebase(){
+/* ── PERSISTENCE (localStorage — each device stores own copy) ── */
+function saveLocal(){
   try{
-    const app=initializeApp(FIREBASE_CONFIG);
-    db=getDatabase(app);
-    boardRef=ref(db,"speeddecode/board");
-    votesRef=ref(db,"speeddecode/votes");
-    setSyncStatus(true);
-    return true;
-  }catch(e){
-    setSyncStatus(false);
-    return false;
-  }
-}
-
-function setSyncStatus(ok){
-  const dot=document.getElementById("syncdot");
-  const lbl=document.getElementById("synclbl");
-  if(!dot)return;
-  if(ok){dot.classList.remove("err");lbl.textContent="Live";}
-  else{dot.classList.add("err");lbl.textContent="Offline";}
-}
-
-/* ── FIREBASE READ/WRITE ── */
-async function saveBoard(){
-  if(!db){saveFallback();return;}
-  try{
-    await set(boardRef,{notes,nid});
-    await set(votesRef,votes);
-  }catch(e){setSyncStatus(false);}
-}
-
-function subscribeBoard(){
-  if(!db)return;
-  onValue(boardRef,snap=>{
-    const d=snap.val();
-    if(d){notes=d.notes||[];nid=d.nid||200;}
-    else{notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));nid=200;}
-    renderBoard();
-    if(sumVis)renderSum();
-    setSyncStatus(true);
-  },()=>setSyncStatus(false));
-
-  onValue(votesRef,snap=>{
-    votes=snap.val()||{};
-    updateVoteCounter();
-    renderBoard();
-    if(logVis)renderLog();
-    setSyncStatus(true);
-  },()=>setSyncStatus(false));
-}
-
-async function initBoardData(){
-  if(!db)return;
-  const snap=await get(boardRef);
-  if(!snap.exists()){
-    notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));nid=200;
-    await set(boardRef,{notes,nid});
-    await set(votesRef,{});
-  }
-}
-
-/* ── FALLBACK localStorage ── */
-function saveFallback(){
-  try{
-    localStorage.setItem("sd_notes",JSON.stringify({notes,nid}));
-    localStorage.setItem("sd_votes",JSON.stringify(votes));
+    localStorage.setItem(SK,JSON.stringify({notes,nid}));
+    localStorage.setItem(VK,JSON.stringify(votes));
   }catch(e){}
 }
-function loadFallback(){
+function loadLocal(){
   try{
-    const b=JSON.parse(localStorage.getItem("sd_notes"));
-    const v=JSON.parse(localStorage.getItem("sd_votes"));
-    notes=b?b.notes:JSON.parse(JSON.stringify(DEFAULT_NOTES));
-    nid=b?b.nid:200;
-    votes=v||{};
+    const bd=JSON.parse(localStorage.getItem(SK));
+    const vd=JSON.parse(localStorage.getItem(VK));
+    notes=bd?bd.notes:JSON.parse(JSON.stringify(DEFAULT_NOTES));
+    nid=bd?bd.nid:200;
+    votes=vd||{};
   }catch(e){
     notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));
     votes={};nid=200;
@@ -373,28 +480,29 @@ function loadFallback(){
 
 /* ── GATE ── */
 document.getElementById("nmin").addEventListener("keydown",e=>{if(e.key==="Enter")doJoin();});
-window.toggleAdminPanel=function(){
+function toggleAdmin(){
   const p=document.getElementById("adminpanel");
   p.style.display=p.style.display==="block"?"none":"block";
   if(p.style.display==="block")document.getElementById("auser").focus();
-};
-window.doJoin=function(){
+}
+function doJoin(){
   const v=document.getElementById("nmin").value.trim();
   if(!v){document.getElementById("gerr").textContent="Please enter your name or student ID.";return;}
   currentUser=v;
   enterApp();
-};
-window.doAdminLogin=function(){
+}
+function doAdminLogin(){
   const u=document.getElementById("auser").value.trim();
   const p=document.getElementById("apass").value;
   if(u===ADMIN_USER&&btoa(p)===ADMIN_HASH){
-    isAdmin=true;currentUser="Admin";enterApp();
+    isAdmin=true;currentUser="Admin";
+    enterApp();
   } else {
     document.getElementById("aerr").textContent="Incorrect email or password.";
   }
-};
-
-async function enterApp(){
+}
+function enterApp(){
+  loadLocal();
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="flex";
   document.getElementById("upill").textContent=currentUser;
@@ -402,21 +510,26 @@ async function enterApp(){
     ["abtn1","abtn2"].forEach(id=>document.getElementById(id).style.display="inline-block");
     document.getElementById("apill").style.display="inline-flex";
   }
-  if(!CONFIGURED){
-    showSetupGuide();return;
-  }
-  const ok=initFirebase();
-  if(ok){
-    await initBoardData();
-    subscribeBoard();
-  } else {
-    loadFallback();renderBoard();
-  }
   updateVoteCounter();
+  renderBoard();
+  startPoll();
+}
+
+/* ── POLLING (re-reads localStorage every 5s — works if all on same device, or as a refresh prompt) ── */
+function startPoll(){
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(()=>{
+    loadLocal();
+    renderBoard();
+    if(sumVis)renderSum();
+    if(logVis)renderLog();
+    const sl=document.getElementById("synclbl");
+    if(sl)sl.textContent="&#9679; "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  },5000);
 }
 
 /* ── MODE ── */
-window.setMode=function(m){
+function setMode(m){
   mode=m;
   document.getElementById("edbtn").classList.toggle("on",m==="edit");
   document.getElementById("vobtn").classList.toggle("on",m==="vote");
@@ -425,24 +538,15 @@ window.setMode=function(m){
     ?"Click + add to place a skill in any cell"
     :"Click a sticky note to cast your vote (3 per person)";
   renderBoard();
-};
-
+}
 function updateVoteCounter(){
   const rem=3-(votes[currentUser]||[]).length;
   const el=document.getElementById("vleft");
   if(el)el.textContent=rem;
 }
 
-/* ── CONFIRM BANNER ── */
-window.hideBanner=function(){document.getElementById("cbanner").style.display="none";};
-function showBanner(msg,onYes){
-  document.getElementById("ctext").textContent=msg;
-  document.getElementById("cyes").onclick=()=>{hideBanner();onYes();};
-  document.getElementById("cbanner").style.display="flex";
-}
-
 /* ── VOTE ── */
-window.voteNote=async function(id){
+function voteNote(id){
   if(mode!=="vote")return;
   const n=notes.find(x=>x.id===id);if(!n)return;
   if(!votes[currentUser])votes[currentUser]=[];
@@ -452,55 +556,68 @@ window.voteNote=async function(id){
   else{if(mv.length>=3)return;mv.push(id);n.v++;}
   votes[currentUser]=mv;
   updateVoteCounter();
-  await saveBoard();
-};
+  saveLocal();renderBoard();
+  if(sumVis)renderSum();
+  if(logVis)renderLog();
+}
 
 /* ── ADD / DELETE ── */
-window.startAdd=function(a,l){
+function startAdd(a,l){
   if(mode!=="edit")return;
   editCell={a,l};renderBoard();
   const inp=document.getElementById("inp-"+a+"-"+l);
   if(inp)inp.focus();
-};
-window.commitNote=async function(a,l){
+}
+function commitNote(a,l){
   const inp=document.getElementById("inp-"+a+"-"+l);if(!inp)return;
   const t=inp.value.trim();
-  if(t)notes.push({id:nid++,t,l,a,v:0});
+  if(t){notes.push({id:nid++,t,l,a,v:0});}
   editCell=null;renderBoard();
-  if(t)await saveBoard();
+  if(t)saveLocal();
   if(sumVis)renderSum();
-};
-window.delNote=async function(id){
+}
+function delNote(id){
   notes=notes.filter(n=>n.id!==id);
   Object.keys(votes).forEach(u=>{votes[u]=(votes[u]||[]).filter(x=>x!==id);});
-  await saveBoard();
+  saveLocal();renderBoard();
   if(sumVis)renderSum();
-};
+}
 
-/* ── RESET ACTIONS ── */
-window.askReset=function(){
-  showBanner("Reset all votes? This cannot be undone.",async()=>{
+/* ── CUSTOM CONFIRM BANNER (replaces native confirm() which is blocked in iframes) ── */
+function showBanner(msg,onYes){
+  const b=document.getElementById("cbanner");
+  document.getElementById("cbannertext").textContent=msg;
+  document.getElementById("cyes").onclick=()=>{hideBanner();onYes();};
+  b.style.display="flex";
+}
+function hideBanner(){
+  document.getElementById("cbanner").style.display="none";
+}
+
+/* ── RESET ── */
+function doResetVotes(){
+  showBanner("Reset all votes? This cannot be undone.",()=>{
     notes.forEach(n=>n.v=0);votes={};
-    updateVoteCounter();await saveBoard();
+    updateVoteCounter();saveLocal();renderBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-};
-window.askClear=function(){
+}
+function adminClear(){
   if(!isAdmin)return;
-  showBanner("Remove every note from the board and clear all votes?",async()=>{
+  showBanner("Remove every note from the board and clear all votes?",()=>{
     notes=[];votes={};nid=200;
-    updateVoteCounter();await saveBoard();renderBoard();
+    updateVoteCounter();saveLocal();renderBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-};
-window.askFullReset=function(){
+}
+function adminFullReset(){
   if(!isAdmin)return;
-  showBanner("Restore all pre-filled notes and clear all votes?",async()=>{
+  showBanner("Restore all pre-filled notes and clear all votes?",()=>{
     notes=JSON.parse(JSON.stringify(DEFAULT_NOTES));votes={};nid=200;
-    updateVoteCounter();await saveBoard();
+    updateVoteCounter();saveLocal();renderBoard();
     if(sumVis)renderSum();if(logVis)renderLog();
   });
-};
+}
 
 /* ── RENDER BOARD ── */
 function renderBoard(){
@@ -537,11 +654,11 @@ function renderBoard(){
 }
 
 /* ── SUMMARY ── */
-window.toggleSum=function(){
+function toggleSum(){
   sumVis=!sumVis;
   document.getElementById("sumbox").style.display=sumVis?"block":"none";
   if(sumVis)renderSum();
-};
+}
 function renderSum(){
   const sg=document.getElementById("sumgrid");if(!sg)return;
   let h="";
@@ -561,17 +678,242 @@ function renderSum(){
 }
 
 /* ── VOTER LOG ── */
-window.toggleLog=function(){
+function toggleLog(){
   logVis=!logVis;
   document.getElementById("vlogbox").style.display=logVis?"block":"none";
   if(logVis)renderLog();
-};
+}
 function renderLog(){
   const body=document.getElementById("vlogbody");if(!body)return;
   const voters=Object.keys(votes).filter(u=>(votes[u]||[]).length>0);
   if(!voters.length){body.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:var(--text3)">No votes placed yet.</div>`;return;}
   body.className="vlb";
   body.innerHTML=voters.map(u=>`<span class="vpill done">&#10003; ${u} (${(votes[u]||[]).length}/3)</span>`).join("");
+}
+
+document.getElementById("nmin").focus();
+
+/* ────────────────────────────────────────────────
+   DASHBOARD
+──────────────────────────────────────────────── */
+let dashVis=false,stratVis=false,selectedCluster=null;
+let chartMatrix=null,chartRatio=null,chartPie=null;
+
+const LANES_DASH=[
+  {id:"hard",label:"Hard Skills",color:"#BA7517",bg:"#FAEEDA"},
+  {id:"soft",label:"Soft Skills",color:"#0F6E56",bg:"#E1F5EE"},
+  {id:"know",label:"Knowledge",color:"#534AB7",bg:"#EEEDFE"},
+];
+const AD_LABELS=["Dentsu Redder\nHanoi","Leo Burnett\nHCMC","Vero\nHanoi","Ogilvy\nSydney","W+K\nTokyo","TSLA\nSingapore"];
+
+function getDashData(){
+  const totalVotes=Object.values(votes).reduce((s,arr)=>s+(arr||[]).length,0);
+  const uniqueVoters=Object.values(votes).filter(arr=>(arr||[]).length>0).length;
+  // Cluster data by lane
+  const clusters=LANES_DASH.map(lane=>{
+    const ns=notes.filter(n=>n.l===lane.id);
+    const entries=ns.length;
+    const voteSum=ns.reduce((s,n)=>s+n.v,0);
+    const ratio=entries>0?+(voteSum/entries).toFixed(2):0;
+    return{...lane,entries,votes:voteSum,ratio,gap:voteSum-entries,items:ns};
+  });
+  // Per-ad data
+  const adData=ADS.map(ad=>{
+    const ns=notes.filter(n=>n.a===ad.id);
+    const voteSum=ns.reduce((s,n)=>s+n.v,0);
+    const byLane={};
+    LANES_DASH.forEach(l=>{byLane[l.id]=ns.filter(n=>n.l===l.id).length;});
+    return{...ad,count:ns.length,votes:voteSum,byLane};
+  });
+  const typeData={
+    hard:notes.filter(n=>n.l==="hard").length,
+    soft:notes.filter(n=>n.l==="soft").length,
+    know:notes.filter(n=>n.l==="know").length,
+  };
+  return{totalVotes,uniqueVoters,clusters,adData,typeData};
+}
+
+function destroyCharts(){
+  [chartMatrix,chartRatio,chartPie].forEach(c=>{if(c)c.destroy();});
+  chartMatrix=chartRatio=chartPie=null;
+}
+
+function toggleDash(){
+  dashVis=!dashVis;
+  const dp=document.getElementById("dashpanel");
+  const btn=document.getElementById("dashbtn");
+  // toggle board sections visibility
+  const boardEls=["bg","sumbox","vlogbox"];
+  const wrap=document.querySelector(".bwrap");
+  const lgnd=document.querySelector(".lgnd");
+  const ftr=document.querySelector(".footer");
+  if(dashVis){
+    dp.style.display="flex";
+    btn.classList.add("on");
+    btn.style.background="#534AB7";btn.style.color="#fff";
+    if(wrap)wrap.style.display="none";
+    if(lgnd)lgnd.style.display="none";
+    document.getElementById("sumbox").style.display="none";
+    document.getElementById("vlogbox").style.display="none";
+    if(ftr)ftr.style.display="none";
+    renderDash();
+  }else{
+    dp.style.display="none";
+    btn.classList.remove("on");
+    btn.style.background="";btn.style.color="#534AB7";
+    if(wrap)wrap.style.display="block";
+    if(lgnd)lgnd.style.display="flex";
+    if(ftr)ftr.style.display="block";
+    if(sumVis)document.getElementById("sumbox").style.display="block";
+    if(logVis)document.getElementById("vlogbox").style.display="block";
+    destroyCharts();
+  }
+}
+
+function toggleStrat(){
+  stratVis=!stratVis;
+  document.getElementById("stratreport").style.display=stratVis?"block":"none";
+  const btn=document.getElementById("stratbtn");
+  btn.classList.toggle("on",stratVis);
+  btn.textContent=stratVis?"✕ Close Report":"💡 Strategic Report";
+}
+
+function renderDash(){
+  const d=getDashData();
+  // KPIs
+  document.getElementById("kpi-notes").textContent=notes.length;
+  document.getElementById("kpi-votes").textContent=d.totalVotes;
+  document.getElementById("kpi-voters").textContent=d.uniqueVoters;
+  // Charts
+  destroyCharts();
+  // Detect dark mode
+  const dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
+  const tickColor=dark?"#888780":"#5F5E5A";
+  // Matrix bar chart
+  const mCtx=document.getElementById("chart-matrix").getContext("2d");
+  chartMatrix=new Chart(mCtx,{
+    type:"bar",
+    data:{
+      labels:d.clusters.map(c=>c.label),
+      datasets:[
+        {label:"Entries (frequency)",data:d.clusters.map(c=>c.entries),backgroundColor:"#CBD5E1",borderRadius:6,barThickness:28},
+        {label:"Votes (impact)",data:d.clusters.map(c=>c.votes),backgroundColor:"#534AB7",borderRadius:6,barThickness:28},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:10,font:{size:10},color:tickColor}},tooltip:{cornerRadius:10}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
+        y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+      }
+    }
+  });
+  // Ratio horizontal bar
+  const rCtx=document.getElementById("chart-ratio").getContext("2d");
+  const ratioColors=d.clusters.map(c=>c.ratio>1.2?"#10b981":c.ratio<0.8?"#f59e0b":"#534AB7");
+  chartRatio=new Chart(rCtx,{
+    type:"bar",
+    data:{
+      labels:d.clusters.map(c=>c.label),
+      datasets:[{label:"Vote/Entry Ratio",data:d.clusters.map(c=>c.ratio),backgroundColor:ratioColors,borderRadius:6,barThickness:22}]
+    },
+    options:{
+      indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{cornerRadius:10,callbacks:{label:ctx=>`Ratio: ${ctx.raw}`}}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+        y:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
+      }
+    }
+  });
+  // Pie chart
+  const pCtx=document.getElementById("chart-pie").getContext("2d");
+  chartPie=new Chart(pCtx,{
+    type:"doughnut",
+    data:{
+      labels:["Hard Skills","Soft Skills","Knowledge"],
+      datasets:[{data:[d.typeData.hard,d.typeData.soft,d.typeData.know],backgroundColor:["#BA7517","#0F6E56","#534AB7"],borderWidth:3,borderColor:dark?"#1C1C1A":"#fff",hoverOffset:6}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:"60%",
+      plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10},color:tickColor}},tooltip:{cornerRadius:10}}
+    }
+  });
+  // Cluster cards
+  renderClusterCards(d);
+  // Per-ad breakdown
+  renderAdGrid(d);
+}
+
+function renderClusterCards(d){
+  const g=document.getElementById("cluster-grid");if(!g)return;
+  g.innerHTML=d.clusters.map(c=>{
+    const ratioClass=c.ratio>1.2?"hi":c.ratio<0.8?"lo":"mid";
+    const icons={hard:"🔧",soft:"💬",know:"📚"};
+    const isActive=selectedCluster===c.id;
+    return`<div class="cl-card${isActive?" active":""}" onclick="selectCluster('${c.id}')">
+      <div class="cl-ico" style="background:${c.bg}">${icons[c.id]||"📌"}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+        <span class="cl-name">${c.label}</span>
+        <span class="cl-ratio ${ratioClass}">${c.ratio}</span>
+      </div>
+      <div class="cl-stats">
+        <div class="cs"><span class="cs-v">${c.entries}</span><span>Freq</span></div>
+        <div class="cs"><span class="cs-v">${c.votes}</span><span>Votes</span></div>
+        <div class="cs" style="margin-left:auto;text-align:right"><span class="cs-v" style="color:${c.gap>=0?"#0F6E56":"#D85A30"}">${c.gap>=0?"+":""}${c.gap}</span><span>Net gap</span></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function selectCluster(id){
+  selectedCluster=selectedCluster===id?null:id;
+  const d=getDashData();
+  renderClusterCards(d);
+  const box=document.getElementById("cldetail");
+  if(!selectedCluster){box.style.display="none";return;}
+  const cl=d.clusters.find(c=>c.id===selectedCluster);
+  if(!cl){box.style.display="none";return;}
+  document.getElementById("cldet-title").textContent=cl.label+" — Detailed Weighting";
+  const sorted=[...cl.items].sort((a,b)=>b.v-a.v);
+  const adMap={};ADS.forEach(a=>adMap[a.id]=a.co);
+  document.getElementById("cldet-body").innerHTML=sorted.map(n=>
+    `<tr>
+      <td><span class="type-badge ${n.l}">${n.l}</span></td>
+      <td style="font-weight:600">${n.t}</td>
+      <td style="color:var(--text2);font-size:10px">${adMap[n.a]||"Ad "+n.a}</td>
+      <td style="text-align:center"><span class="vweight ${n.v>0?"pos":"zero"}">${n.v}</span></td>
+    </tr>`
+  ).join("");
+  box.style.display="block";
+}
+
+function closeCluster(){
+  selectedCluster=null;
+  document.getElementById("cldetail").style.display="none";
+  const d=getDashData();
+  renderClusterCards(d);
+}
+
+function renderAdGrid(d){
+  const g=document.getElementById("ad-grid");if(!g)return;
+  const maxCount=Math.max(...d.adData.map(a=>a.count))||1;
+  g.innerHTML=d.adData.map((ad,i)=>`
+    <div class="ad-card">
+      <div class="ac-name">${ADS[i].co}</div>
+      <div class="ac-loc">${ADS[i].loc}</div>
+      <div class="ac-bars">
+        ${LANES_DASH.map(l=>`
+          <div class="ac-bar-row">
+            <span class="abl">${l.id}</span>
+            <div class="ac-bar-wrap"><div class="ac-bar-fill ${l.id}" style="width:${Math.round((ad.byLane[l.id]||0)/maxCount*100)}%"></div></div>
+            <span style="font-size:9px;color:var(--text2);width:14px;text-align:right">${ad.byLane[l.id]||0}</span>
+          </div>`).join("")}
+      </div>
+      <div class="ac-votes">${ad.votes>0?"🔴 "+ad.votes+" vote"+(ad.votes!==1?"s":""):"No votes yet"}</div>
+    </div>`).join("");
 }
 </script>
 </body>
