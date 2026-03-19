@@ -427,7 +427,7 @@
 
     <!-- Volume vs Value Matrix -->
     <div class="dash-section">
-      <div class="dash-h"><span class="dico" style="background:#EEF2FF;color:#534AB7">📈</span> Volume vs. Value Matrix <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px;text-transform:none;letter-spacing:0">— Frequency (entries) vs. Voter Impact (votes)</span></div>
+      <div class="dash-h"><span class="dico" style="background:#EEF2FF;color:#534AB7">📈</span> Volume vs. Value Matrix <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px;text-transform:none;letter-spacing:0">— Skill share % vs. Vote share % · bars above skill share = over-indexed</span></div>
       <div class="chart-wrap tall"><canvas id="chart-matrix"></canvas></div>
     </div>
 
@@ -1329,31 +1329,41 @@ function toArr(v){
 }
 
 function getDashData(){
-  const totalVotes=notes.reduce((s,n)=>s+(n.v||0),0);
-  const voterMap=Object.values(votes).filter(arr=>toArr(arr).length>0);
-  const uniqueVoters=voterMap.length||0;
+  // Authoritative vote count: strictly from the user→noteIds map (not n.v which accumulates across sessions)
+  const voteArrays=Object.values(votes).map(toArr);
+  const totalVotes=voteArrays.reduce((s,arr)=>s+arr.length,0);
+  const uniqueVoters=voteArrays.filter(arr=>arr.length>0).length;
+  // If votes map is empty (e.g. Firebase restore without votes), fall back to n.v sum
+  const totalVotesFallback=notes.reduce((s,n)=>s+(n.v||0),0);
+  const resolvedVotes=totalVotes>0?totalVotes:totalVotesFallback;
+  const totalNotes=notes.length||1; // guard /0
 
   // Assign each note to a semantic cluster
   const annotated=notes.map(n=>({...n,cluster:assignCluster(n)}));
 
-  // Semantic cluster summaries (used by matrix + cluster chart)
+  // Semantic cluster summaries
   const semClusters=SKILL_CLUSTERS.map(cl=>{
     const items=annotated.filter(n=>n.cluster===cl.id);
     const entries=items.length;
     const voteSum=items.reduce((s,n)=>s+(n.v||0),0);
     const ratio=entries>0?+(voteSum/entries).toFixed(2):0;
-    return{...cl,entries,votes:voteSum,ratio,gap:voteSum-entries,items};
+    // Normalised shares (%)
+    const freqPct=+(entries/totalNotes*100).toFixed(1);
+    const votePct=resolvedVotes>0?+(voteSum/resolvedVotes*100).toFixed(1):0;
+    return{...cl,entries,votes:voteSum,ratio,gap:voteSum-entries,items,freqPct,votePct};
   });
-  // "Other" bucket
   const otherItems=annotated.filter(n=>n.cluster==="other");
   if(otherItems.length){
     const voteSum=otherItems.reduce((s,n)=>s+(n.v||0),0);
+    const entries=otherItems.length;
     semClusters.push({id:"other",label:"Other",icon:"📌",color:"#94a3b8",bg:"#F1F5F9",
-      entries:otherItems.length,votes:voteSum,ratio:otherItems.length>0?+(voteSum/otherItems.length).toFixed(2):0,
-      gap:voteSum-otherItems.length,items:otherItems,kw:[]});
+      entries,votes:voteSum,ratio:entries>0?+(voteSum/entries).toFixed(2):0,
+      gap:voteSum-entries,items:otherItems,kw:[],
+      freqPct:+(entries/totalNotes*100).toFixed(1),
+      votePct:resolvedVotes>0?+(voteSum/resolvedVotes*100).toFixed(1):0});
   }
 
-  // Per-lane clusters (used by type mix pie + per-ad breakdown)
+  // Per-lane clusters
   const clusters=LANES_DASH.map(lane=>{
     const ns=notes.filter(n=>n.l===lane.id);
     const entries=ns.length;
@@ -1362,7 +1372,6 @@ function getDashData(){
     return{...lane,entries,votes:voteSum,ratio,gap:voteSum-entries,items:ns};
   });
 
-  // Per-ad data
   const adData=ADS.map(ad=>{
     const ns=notes.filter(n=>n.a===ad.id);
     const voteSum=ns.reduce((s,n)=>s+(n.v||0),0);
@@ -1375,7 +1384,7 @@ function getDashData(){
     soft:notes.filter(n=>n.l==="soft").length,
     know:notes.filter(n=>n.l==="know").length,
   };
-  return{totalVotes,uniqueVoters,semClusters,clusters,adData,typeData,annotated};
+  return{totalVotes:resolvedVotes,uniqueVoters,semClusters,clusters,adData,typeData,annotated,totalNotes,resolvedVotes};
 }
 
 function destroyCharts(){
@@ -1433,15 +1442,26 @@ function renderDash(){
   const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
   const tickColor=dark?"#888780":"#5F5E5A";
 
-  // ── Volume vs Value Matrix — uses semantic clusters ──
+  // ── Volume vs Value Matrix — normalised % shares ──
   const mCtx=document.getElementById("chart-matrix").getContext("2d");
+  // Sort by vote share descending so highest-priority clusters lead
+  const matrixData=[...d.semClusters].sort((a,b)=>b.votePct-a.votePct);
   chartMatrix=new Chart(mCtx,{
     type:"bar",
     data:{
-      labels:d.semClusters.map(c=>c.label),
+      labels:matrixData.map(c=>c.label),
       datasets:[
-        {label:"Entries (frequency)",data:d.semClusters.map(c=>c.entries),backgroundColor:"#CBD5E1",borderRadius:6,barThickness:24},
-        {label:"Votes (impact)",data:d.semClusters.map(c=>c.votes),backgroundColor:d.semClusters.map(c=>c.color),borderRadius:6,barThickness:24},
+        {
+          label:"Skill share % (frequency)",
+          data:matrixData.map(c=>c.freqPct),
+          backgroundColor:"#CBD5E1",borderRadius:6,barThickness:24,
+          borderColor:"#94a3b8",borderWidth:1
+        },
+        {
+          label:"Vote share % (impact)",
+          data:matrixData.map(c=>c.votePct),
+          backgroundColor:matrixData.map(c=>c.color),borderRadius:6,barThickness:24
+        },
       ]
     },
     options:{
@@ -1449,19 +1469,36 @@ function renderDash(){
       plugins:{
         legend:{labels:{boxWidth:10,font:{size:10},color:tickColor}},
         tooltip:{cornerRadius:10,callbacks:{
-          afterLabel:ctx=>{
-            const cl=d.semClusters[ctx.dataIndex];
-            return ctx.datasetIndex===1?`Ratio: ${cl.ratio} · Gap: ${cl.gap>=0?"+":""}${cl.gap}`:"";
+          label:ctx=>{
+            const cl=matrixData[ctx.dataIndex];
+            if(ctx.datasetIndex===0)return`Skill share: ${cl.freqPct}% (${cl.entries} skills)`;
+            return`Vote share: ${cl.votePct}% (${cl.votes} votes)`;
+          },
+          afterBody:ctx2=>{
+            const cl=matrixData[ctx2[0].dataIndex];
+            const diff=(cl.votePct-cl.freqPct).toFixed(1);
+            const sign=diff>=0?"+":"";
+            const label=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
+            return[`${label}: ${sign}${diff}% vs skill share`,`Ratio: ${cl.ratio}`];
           }
         }},
-        datalabels:{anchor:"end",align:"end",font:{size:10,weight:"bold"},
-          color:ctx=>ctx.datasetIndex===1?d.semClusters[ctx.dataIndex].color:"#64748b",
-          formatter:v=>v===0?"":v,offset:2,clip:false}
+        datalabels:{
+          anchor:"end",align:"end",
+          font:{size:10,weight:"bold"},
+          color:ctx=>ctx.datasetIndex===1?matrixData[ctx.dataIndex].color:"#64748b",
+          formatter:v=>v===0?"":v+"%",
+          offset:2,clip:false
+        },
+        // Annotation: reference line at equal share would need plugin; we label axes clearly instead
       },
-      layout:{padding:{top:20}},
+      layout:{padding:{top:22}},
       scales:{
         x:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"}}},
-        y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+        y:{
+          grid:{color:gridColor},
+          ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
+          title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
+        },
       }
     },
     plugins:[ChartDataLabels]
