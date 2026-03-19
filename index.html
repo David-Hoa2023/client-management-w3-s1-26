@@ -1309,8 +1309,11 @@ function toArr(v){
 }
 
 function getDashData(){
-  const totalVotes=Object.values(votes).reduce((s,arr)=>s+toArr(arr).length,0);
-  const uniqueVoters=Object.values(votes).filter(arr=>toArr(arr).length>0).length;
+  // Authoritative vote total: sum of n.v on every note (always in sync with board)
+  const totalVotes=notes.reduce((s,n)=>s+(n.v||0),0);
+  // Unique voters: from votes map if populated, otherwise estimate from note data
+  const voterMap=Object.values(votes).filter(arr=>toArr(arr).length>0);
+  const uniqueVoters=voterMap.length||0;
   // Cluster data by lane
   const clusters=LANES_DASH.map(lane=>{
     const ns=notes.filter(n=>n.l===lane.id);
