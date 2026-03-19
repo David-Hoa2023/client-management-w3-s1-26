@@ -494,7 +494,17 @@
     <div class="fb-status" id="fb-status-bar">
       <div class="fb-dot spin" id="fb-dot2"></div>
       <span id="fb-label2">Connecting to Firebase…</span>
-      <span style="margin-left:auto;color:var(--text3)">speeddecode/sessions</span>
+      <span style="margin-left:auto;color:var(--text3)" id="fb-path-lbl">speeddecode/sessions</span>
+    </div>
+
+    <!-- Debug + path switcher (visible when 0 records) -->
+    <div style="padding:7px 16px;background:var(--bg3);border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:5px">
+      <div id="fb-debug-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:10px;font-weight:600"></div>
+      <div id="fb-path-hints" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-height:22px"></div>
+      <div style="display:flex;gap:5px">
+        <input id="fb-path-input" class="sess-input" style="font-size:11px;padding:4px 8px" value="speeddecode/sessions" placeholder="Firebase path e.g. sessions">
+        <button class="sess-save-btn" style="padding:4px 10px;font-size:11px" onclick="switchPath(document.getElementById('fb-path-input').value)">Go</button>
+      </div>
     </div>
 
     <!-- Save current session -->
@@ -834,46 +844,122 @@ const FB_CONFIG={
 };
 firebase.initializeApp(FB_CONFIG);
 const fbDb=firebase.database();
-const SESS_REF=fbDb.ref("speeddecode/sessions");
+
+/* ── Path config — admin can override via the drawer ── */
+let SESS_PATH="speeddecode/sessions";
+let SESS_REF=fbDb.ref(SESS_PATH);
+let sessListener=null; // so we can detach and reattach on path change
 
 /* ── Connection state ── */
 let fbOnline=false;
-let fbSessions=[];           // master list populated by real-time listener
+let fbSessions=[];
+let fbRawCount=0;        // how many keys Firebase actually returned
 let sessDrawerOpen=false;
-let activeQuickFilter="yesterday"; // default to yesterday on open
+let activeQuickFilter="yesterday";
 
 fbDb.ref(".info/connected").on("value",snap=>{
   fbOnline=!!snap.val();
   setFbStatus(fbOnline?"ok":"err", fbOnline?"Firebase connected":"Offline — showing cached data");
+  if(fbOnline)probeRootPaths(); // discover available paths on connect
 });
 
 function setFbStatus(state,text){
   ["fb-dot","fb-dot2"].forEach(id=>{
     const el=document.getElementById(id);
-    if(el){el.className="fb-dot "+state;}
+    if(el)el.className="fb-dot "+state;
   });
   ["fb-label","fb-label2"].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.textContent=text;
   });
+  const pl=document.getElementById("fb-path-lbl");
+  if(pl)pl.textContent=SESS_PATH;
 }
 
-/* ── Real-time listener ── */
-SESS_REF.orderByChild("savedAt").on("value",snapshot=>{
+/* ── Probe root to discover actual data paths ── */
+function probeRootPaths(){
+  fbDb.ref("/").once("value",snap=>{
+    if(!snap.exists())return;
+    const topKeys=Object.keys(snap.val()||{});
+    const pathHints=document.getElementById("fb-path-hints");
+    if(!pathHints||!topKeys.length)return;
+    // Build clickable path suggestions by walking up to 2 levels
+    const allPaths=[];
+    topKeys.forEach(k=>{
+      allPaths.push(k);
+      const sub=snap.val()[k];
+      if(sub&&typeof sub==="object"&&!Array.isArray(sub)){
+        Object.keys(sub).slice(0,5).forEach(sk=>allPaths.push(`${k}/${sk}`));
+      }
+    });
+    pathHints.innerHTML=`<span style="color:var(--text3);font-size:10px;margin-right:4px">Paths found:</span>`+
+      allPaths.map(p=>`<button class="qf-chip" style="font-size:10px;padding:2px 8px" onclick="switchPath('${p}')">${p}</button>`).join("");
+  }).catch(()=>{});
+}
+
+/* ── Switch to a different Firebase path ── */
+function switchPath(newPath){
+  if(!newPath.trim())return;
+  SESS_PATH=newPath.trim();
+  // Detach old listener
+  if(sessListener){SESS_REF.off("value",sessListener);sessListener=null;}
+  SESS_REF=fbDb.ref(SESS_PATH);
   fbSessions=[];
-  snapshot.forEach(child=>{
-    fbSessions.unshift({id:child.key,...child.val()});
+  const pl=document.getElementById("fb-path-lbl");
+  if(pl)pl.textContent=SESS_PATH;
+  const pi=document.getElementById("fb-path-input");
+  if(pi)pi.value=SESS_PATH;
+  attachSessListener();
+}
+
+/* ── Attach the real-time listener (plain .on, no orderByChild) ── */
+function attachSessListener(){
+  sessListener=SESS_REF.on("value",snapshot=>{
+    fbSessions=[];
+    fbRawCount=0;
+    if(snapshot.exists()){
+      snapshot.forEach(child=>{
+        fbRawCount++;
+        const val=child.val();
+        // Accept any record — object or primitive
+        if(val&&typeof val==="object"){
+          fbSessions.push({id:child.key,...val});
+        } else {
+          fbSessions.push({id:child.key,label:String(val),savedAt:null});
+        }
+      });
+    }
+    // Sort newest-first using robust date helper
+    fbSessions.sort((a,b)=>getSessionDate(b)-getSessionDate(a));
+    // Cache locally
+    try{localStorage.setItem(SK_SESS_CACHE,JSON.stringify(fbSessions));}catch(e){}
+    updateDebugBar();
+    if(sessDrawerOpen)renderSessionList();
+  },err=>{
+    console.warn("Firebase read error:",err);
+    try{fbSessions=JSON.parse(localStorage.getItem(SK_SESS_CACHE))||[];}catch(e){fbSessions=[];}
+    setFbStatus("err","Read error: "+err.code);
+    updateDebugBar();
+    if(sessDrawerOpen)renderSessionList();
   });
-  // Cache to localStorage for offline fallback
-  try{localStorage.setItem(SK_SESS_CACHE,JSON.stringify(fbSessions));}catch(e){}
-  if(sessDrawerOpen)renderSessionList();
-},err=>{
-  // Firebase read failed — fall back to local cache
-  console.warn("Firebase read error:",err);
-  try{fbSessions=JSON.parse(localStorage.getItem(SK_SESS_CACHE))||[];}catch(e){fbSessions=[];}
-  setFbStatus("err","Offline — cached data");
-  if(sessDrawerOpen)renderSessionList();
-});
+}
+attachSessListener(); // start immediately
+
+function updateDebugBar(){
+  const bar=document.getElementById("fb-debug-bar");
+  if(!bar)return;
+  bar.innerHTML=`
+    <span style="color:var(--text3)">📡 Path:</span>
+    <span id="fb-path-lbl" style="font-weight:700;color:var(--text)">${SESS_PATH}</span>
+    <span style="color:var(--border2)">|</span>
+    <span style="color:var(--text3)">Records received:</span>
+    <span style="font-weight:700;color:${fbRawCount>0?"#10b981":"#ef4444"}">${fbRawCount}</span>
+    <span style="color:var(--border2)">|</span>
+    <span style="color:var(--text3)">Parsed:</span>
+    <span style="font-weight:700;color:var(--text)">${fbSessions.length}</span>
+    ${fbRawCount===0&&fbOnline?`<span style="color:#f59e0b;font-weight:600">⚠ No data at this path</span>`:""}
+  `;
+}
 
 /* ── Save session to Firebase ── */
 async function doSaveSession(){
@@ -944,16 +1030,57 @@ function updateSessMeta(){
 
 /* ── Quick date filter ── */
 function toLocalYMD(date){
-  // Returns YYYY-MM-DD in local timezone
   const y=date.getFullYear();
   const m=String(date.getMonth()+1).padStart(2,"0");
   const d=String(date.getDate()).padStart(2,"0");
   return`${y}-${m}-${d}`;
 }
 
+/* Robustly derive a YYYY-MM-DD **local** date from any session record.
+   Tries, in order:
+   1. savedAt ISO string → parsed as Date → local YMD
+   2. savedAtMs numeric timestamp → local YMD
+   3. Firebase push key (starts with '-') encodes a ms timestamp in its first 8 chars
+   4. Falls back to "" so the record still appears under "All"
+*/
+function getSessionLocalDate(s){
+  // 1. savedAt ISO string
+  if(s.savedAt && typeof s.savedAt==="string"){
+    const d=new Date(s.savedAt);
+    if(!isNaN(d.getTime()))return toLocalYMD(d);
+  }
+  // 2. savedAtMs numeric
+  if(s.savedAtMs && typeof s.savedAtMs==="number"){
+    return toLocalYMD(new Date(s.savedAtMs));
+  }
+  // 3. Firebase push key encodes timestamp: base64-like, first 8 chars = ms since epoch
+  if(s.id && s.id.startsWith("-")){
+    try{
+      const PUSH_CHARS="-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+      let ms=0;
+      for(let i=0;i<8;i++){ms=ms*64+PUSH_CHARS.indexOf(s.id[i+1]);}
+      if(ms>0)return toLocalYMD(new Date(ms));
+    }catch(e){}
+  }
+  return""; // unknown date — will pass through when no filter set
+}
+
+/* Same helper returning a full Date object (for display) */
+function getSessionDate(s){
+  if(s.savedAt && typeof s.savedAt==="string"){const d=new Date(s.savedAt);if(!isNaN(d.getTime()))return d;}
+  if(s.savedAtMs && typeof s.savedAtMs==="number")return new Date(s.savedAtMs);
+  if(s.id && s.id.startsWith("-")){
+    try{
+      const PUSH_CHARS="-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+      let ms=0;for(let i=0;i<8;i++){ms=ms*64+PUSH_CHARS.indexOf(s.id[i+1]);}
+      if(ms>0)return new Date(ms);
+    }catch(e){}
+  }
+  return new Date(0);
+}
+
 function applyQuickFilter(id){
   activeQuickFilter=id;
-  // Highlight active chip
   ["all","today","yesterday","week","month"].forEach(k=>{
     document.getElementById("qf-"+k)?.classList.toggle("on",k===id);
   });
@@ -980,7 +1107,6 @@ function applyQuickFilter(id){
 }
 
 function onManualDateFilter(){
-  // Deselect quick chips when user edits dates manually
   activeQuickFilter=null;
   ["all","today","yesterday","week","month"].forEach(k=>{
     document.getElementById("qf-"+k)?.classList.remove("on");
@@ -1010,25 +1136,43 @@ function renderSessionList(){
   const q=(document.getElementById("sf-search")?.value||"").toLowerCase().trim();
 
   const filtered=fbSessions.filter(s=>{
-    const d=s.savedAt?s.savedAt.slice(0,10):"";
-    if(from&&d<from)return false;
-    if(to&&d>to)return false;
+    const d=getSessionLocalDate(s); // robust local-timezone date
+    if(from && d && d<from)return false;
+    if(to   && d && d>to)  return false;
+    if(from && !d)return false;     // unknown-date records hidden when a date filter is active
     if(q&&!(s.label?.toLowerCase().includes(q)||s.savedBy?.toLowerCase().includes(q)))return false;
     return true;
   });
 
   if(!filtered.length){
-    const hint=fbSessions.length
-      ?`No sessions in this date range.<br><span style="font-size:10px">${fbSessions.length} total session${fbSessions.length!==1?"s":""} in archive.</span>`
-      :"No sessions saved yet.<br>Use <b>Save snapshot</b> above.";
+    // Show diagnostic when Firebase has data but filter finds nothing
+    let hint="No sessions saved yet.<br>Use <b>Save snapshot</b> above.";
+    if(fbSessions.length){
+      const sample=fbSessions[0];
+      const sampleDate=getSessionLocalDate(sample);
+      const sampleDateDisplay=sampleDate||"(no date found)";
+      hint=`No sessions match this date range.
+        <br><br>
+        <span style="font-size:10px;text-align:left;display:block;background:var(--bg2);border-radius:8px;padding:8px 10px;line-height:1.8">
+          <b>Firebase has ${fbSessions.length} record${fbSessions.length!==1?"s":""}.</b><br>
+          Most recent record date: <b>${sampleDateDisplay}</b><br>
+          Fields on record: <b>${Object.keys(sample).filter(k=>k!=="notes"&&k!=="votes").join(", ")}</b><br>
+          <span style="color:var(--text3)">Try clicking <b>All</b> to see everything.</span>
+        </span>`;
+    }
     list.innerHTML=`<div class="sess-empty">📭<br>${hint}</div>`;
     return;
   }
 
-  // Group by calendar day
+  // Sort newest-first within the filtered set
+  const sorted=[...filtered].sort((a,b)=>getSessionDate(b)-getSessionDate(a));
+
+  // Group by local calendar day
   const groups={};
-  filtered.forEach(s=>{
-    const day=new Date(s.savedAt).toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  sorted.forEach(s=>{
+    const d=getSessionDate(s);
+    const day=d.getTime()===0?"Unknown date"
+      :d.toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
     if(!groups[day])groups[day]=[];
     groups[day].push(s);
   });
@@ -1039,8 +1183,9 @@ function renderSessionList(){
   Object.entries(groups).forEach(([day,items])=>{
     html+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:6px 2px 4px;border-top:0.5px solid var(--border);margin-top:4px">${day}</div>`;
     items.forEach(s=>{
-      const d=new Date(s.savedAt);
-      const timeStr=d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+      const d=getSessionDate(s);
+      const timeStr=d.getTime()===0?"—":d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+      const dateStr=d.getTime()===0?"Unknown":d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
       const laneSummary=s.notes?[
         {l:"hard",count:s.notes.filter(n=>n.l==="hard").length,c:"#BA7517",bg:"#FAEEDA"},
         {l:"soft",count:s.notes.filter(n=>n.l==="soft").length,c:"#0F6E56",bg:"#E1F5EE"},
@@ -1052,7 +1197,7 @@ function renderSessionList(){
           <div class="sc-ico">📋</div>
           <div class="sc-main">
             <div class="sc-name" title="${s.label||""}">${s.label||"Untitled"}</div>
-            <div class="sc-date">🕐 ${timeStr} &nbsp;·&nbsp; 📅 ${d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
+            <div class="sc-date">🕐 ${timeStr} &nbsp;·&nbsp; 📅 ${dateStr}</div>
             <div class="sc-by">Saved by <b>${s.savedBy||"Unknown"}</b></div>
           </div>
         </div>
