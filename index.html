@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Speed Decode — Shared Frequency Board</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -430,33 +431,27 @@
       <div class="chart-wrap tall"><canvas id="chart-matrix"></canvas></div>
     </div>
 
-    <!-- Ratio + Pie row -->
+    <!-- Skill Clusters + Pie row -->
     <div class="chart-grid">
       <div class="dash-section">
-        <div class="dash-h"><span class="dico" style="background:#FFF7ED;color:#C2410C">⚡</span> Vote / Entry Ratio</div>
-        <div class="chart-wrap"><canvas id="chart-ratio"></canvas></div>
+        <div class="dash-h" style="flex-wrap:wrap;gap:6px">
+          <span class="dico" style="background:#EFF6FF;color:#3b82f6">🔬</span> Skill Clusters
+          <div style="margin-left:auto;display:flex;gap:4px;flex-shrink:0">
+            <button class="qf-chip on" id="cv-cluster" onclick="setClusterView('cluster')">Clusters</button>
+            <button class="qf-chip" id="cv-skills" onclick="setClusterView('skills')">All skills</button>
+          </div>
+        </div>
+        <!-- Cluster filter chips (shown in skills view) -->
+        <div id="cl-filter-bar" style="display:none;padding:4px 0 8px;display:none;flex-wrap:wrap;gap:4px">
+          <button class="qf-chip on" id="clf-all" onclick="drillCluster(null)" style="font-size:10px;padding:2px 9px">All clusters</button>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chart-ratio"></canvas></div>
+        <!-- Individual skill drill-down list -->
+        <div id="cl-skill-list" style="display:none;margin-top:10px;border-top:0.5px solid var(--border);padding-top:8px;overflow-y:auto;max-height:240px"></div>
       </div>
       <div class="dash-section">
         <div class="dash-h"><span class="dico" style="background:#F0FDF4;color:#15803D">🥧</span> Skill Type Mix</div>
         <div class="chart-wrap"><canvas id="chart-pie"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Investigate Clusters -->
-    <div class="dash-section">
-      <div class="dash-h"><span class="dico" style="background:#F5F3FF;color:#7C3AED">🔎</span> Investigate Clusters</div>
-      <div class="cluster-grid" id="cluster-grid"></div>
-      <div id="cldetail">
-        <div class="cldet-hdr">
-          <span id="cldet-title">—</span>
-          <button onclick="closeCluster()">✕</button>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="dttable">
-            <thead><tr><th>Type</th><th>Skill</th><th>Ad</th><th style="text-align:center">Votes</th></tr></thead>
-            <tbody id="cldet-body"></tbody>
-          </table>
-        </div>
       </div>
     </div>
 
@@ -1292,13 +1287,38 @@ function closeSessions(){
 }
 let dashVis=false,stratVis=false,selectedCluster=null;
 let chartMatrix=null,chartRatio=null,chartPie=null;
+let clusterViewMode="cluster"; // "cluster" | "skills"
+let selectedSkillCluster=null; // cluster id when drilled in
 
 const LANES_DASH=[
   {id:"hard",label:"Hard Skills",color:"#BA7517",bg:"#FAEEDA"},
   {id:"soft",label:"Soft Skills",color:"#0F6E56",bg:"#E1F5EE"},
   {id:"know",label:"Knowledge",color:"#534AB7",bg:"#EEEDFE"},
 ];
-const AD_LABELS=["Dentsu Redder\nHanoi","Leo Burnett\nHCMC","Vero\nHanoi","Ogilvy\nSydney","W+K\nTokyo","TSLA\nSingapore"];
+
+/* ── Semantic skill clusters (keyword-matched across all lanes) ── */
+const SKILL_CLUSTERS=[
+  {id:"client",   label:"Client Relations",      icon:"🤝", color:"#3b82f6", bg:"#EFF6FF",
+   kw:["communication","negotiation","relationship","client","crm","brief","interpersonal","stakeholder","account","liaison","present","pitch","storytell","listen"]},
+  {id:"strategy", label:"Strategy & Research",   icon:"🎯", color:"#8b5cf6", bg:"#F5F3FF",
+   kw:["analytical","analysis","strateg","campaign","digital","marketing","metric","industry","problem","research","insight","data","market","competit","imc","pr","brand","social","media","influenc","kol","seo","content strategy"]},
+  {id:"ops",      label:"Project & Operations",  icon:"⚙️", color:"#10b981", bg:"#ECFDF5",
+   kw:["project","budget","report","manag","planning","timeline","organis","organiz","admin","coordinat","schedule","deadline","resource","finance","p&l","roi","cost","excel","spread"]},
+  {id:"creative", label:"Creative & Content",    icon:"✨", color:"#f59e0b", bg:"#FFFBEB",
+   kw:["creative","content","copy","design","visual","story","writing","write","edit","produce","video","photo","graphic","art","concept","idea","innovat","press release"]},
+  {id:"language", label:"Language & Compliance", icon:"📜", color:"#ef4444", bg:"#FFF1F2",
+   kw:["bilingual","legal","ethic","regulation","language","english","viet","japan","mandarin","compli","knowledge","aware","law","gdpr","policy"]},
+];
+
+function assignCluster(note){
+  const text=(note.t||"").toLowerCase();
+  let best=null,bestScore=0;
+  SKILL_CLUSTERS.forEach(cl=>{
+    const score=cl.kw.reduce((s,k)=>s+(text.includes(k)?1:0),0);
+    if(score>bestScore){bestScore=score;best=cl.id;}
+  });
+  return best||"other";
+}
 
 /* Normalise a votes entry that Firebase may have serialised as an object {0:id,1:id} instead of an array */
 function toArr(v){
@@ -1309,23 +1329,43 @@ function toArr(v){
 }
 
 function getDashData(){
-  // Authoritative vote total: sum of n.v on every note (always in sync with board)
   const totalVotes=notes.reduce((s,n)=>s+(n.v||0),0);
-  // Unique voters: from votes map if populated, otherwise estimate from note data
   const voterMap=Object.values(votes).filter(arr=>toArr(arr).length>0);
   const uniqueVoters=voterMap.length||0;
-  // Cluster data by lane
+
+  // Assign each note to a semantic cluster
+  const annotated=notes.map(n=>({...n,cluster:assignCluster(n)}));
+
+  // Semantic cluster summaries (used by matrix + cluster chart)
+  const semClusters=SKILL_CLUSTERS.map(cl=>{
+    const items=annotated.filter(n=>n.cluster===cl.id);
+    const entries=items.length;
+    const voteSum=items.reduce((s,n)=>s+(n.v||0),0);
+    const ratio=entries>0?+(voteSum/entries).toFixed(2):0;
+    return{...cl,entries,votes:voteSum,ratio,gap:voteSum-entries,items};
+  });
+  // "Other" bucket
+  const otherItems=annotated.filter(n=>n.cluster==="other");
+  if(otherItems.length){
+    const voteSum=otherItems.reduce((s,n)=>s+(n.v||0),0);
+    semClusters.push({id:"other",label:"Other",icon:"📌",color:"#94a3b8",bg:"#F1F5F9",
+      entries:otherItems.length,votes:voteSum,ratio:otherItems.length>0?+(voteSum/otherItems.length).toFixed(2):0,
+      gap:voteSum-otherItems.length,items:otherItems,kw:[]});
+  }
+
+  // Per-lane clusters (used by type mix pie + per-ad breakdown)
   const clusters=LANES_DASH.map(lane=>{
     const ns=notes.filter(n=>n.l===lane.id);
     const entries=ns.length;
-    const voteSum=ns.reduce((s,n)=>s+n.v,0);
+    const voteSum=ns.reduce((s,n)=>s+(n.v||0),0);
     const ratio=entries>0?+(voteSum/entries).toFixed(2):0;
     return{...lane,entries,votes:voteSum,ratio,gap:voteSum-entries,items:ns};
   });
+
   // Per-ad data
   const adData=ADS.map(ad=>{
     const ns=notes.filter(n=>n.a===ad.id);
-    const voteSum=ns.reduce((s,n)=>s+n.v,0);
+    const voteSum=ns.reduce((s,n)=>s+(n.v||0),0);
     const byLane={};
     LANES_DASH.forEach(l=>{byLane[l.id]=ns.filter(n=>n.l===l.id).length;});
     return{...ad,count:ns.length,votes:voteSum,byLane};
@@ -1335,7 +1375,7 @@ function getDashData(){
     soft:notes.filter(n=>n.l==="soft").length,
     know:notes.filter(n=>n.l==="know").length,
   };
-  return{totalVotes,uniqueVoters,clusters,adData,typeData};
+  return{totalVotes,uniqueVoters,semClusters,clusters,adData,typeData,annotated};
 }
 
 function destroyCharts(){
@@ -1385,121 +1425,226 @@ function toggleStrat(){
 
 function renderDash(){
   const d=getDashData();
-  // KPIs
   document.getElementById("kpi-notes").textContent=notes.length;
   document.getElementById("kpi-votes").textContent=d.totalVotes;
   document.getElementById("kpi-voters").textContent=d.uniqueVoters;
-  // Charts
   destroyCharts();
-  // Detect dark mode
   const dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;
   const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
   const tickColor=dark?"#888780":"#5F5E5A";
-  // Matrix bar chart
+
+  // ── Volume vs Value Matrix — uses semantic clusters ──
   const mCtx=document.getElementById("chart-matrix").getContext("2d");
   chartMatrix=new Chart(mCtx,{
     type:"bar",
     data:{
-      labels:d.clusters.map(c=>c.label),
+      labels:d.semClusters.map(c=>c.label),
       datasets:[
-        {label:"Entries (frequency)",data:d.clusters.map(c=>c.entries),backgroundColor:"#CBD5E1",borderRadius:6,barThickness:28},
-        {label:"Votes (impact)",data:d.clusters.map(c=>c.votes),backgroundColor:"#534AB7",borderRadius:6,barThickness:28},
+        {label:"Entries (frequency)",data:d.semClusters.map(c=>c.entries),backgroundColor:"#CBD5E1",borderRadius:6,barThickness:24},
+        {label:"Votes (impact)",data:d.semClusters.map(c=>c.votes),backgroundColor:d.semClusters.map(c=>c.color),borderRadius:6,barThickness:24},
       ]
     },
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{boxWidth:10,font:{size:10},color:tickColor}},tooltip:{cornerRadius:10}},
+      plugins:{
+        legend:{labels:{boxWidth:10,font:{size:10},color:tickColor}},
+        tooltip:{cornerRadius:10,callbacks:{
+          afterLabel:ctx=>{
+            const cl=d.semClusters[ctx.dataIndex];
+            return ctx.datasetIndex===1?`Ratio: ${cl.ratio} · Gap: ${cl.gap>=0?"+":""}${cl.gap}`:"";
+          }
+        }},
+        datalabels:{anchor:"end",align:"end",font:{size:10,weight:"bold"},
+          color:ctx=>ctx.datasetIndex===1?d.semClusters[ctx.dataIndex].color:"#64748b",
+          formatter:v=>v===0?"":v,offset:2,clip:false}
+      },
+      layout:{padding:{top:20}},
       scales:{
-        x:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
+        x:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"}}},
         y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
       }
-    }
-  });
-  // Ratio horizontal bar
-  const rCtx=document.getElementById("chart-ratio").getContext("2d");
-  const ratioColors=d.clusters.map(c=>c.ratio>1.2?"#10b981":c.ratio<0.8?"#f59e0b":"#534AB7");
-  chartRatio=new Chart(rCtx,{
-    type:"bar",
-    data:{
-      labels:d.clusters.map(c=>c.label),
-      datasets:[{label:"Vote/Entry Ratio",data:d.clusters.map(c=>c.ratio),backgroundColor:ratioColors,borderRadius:6,barThickness:22}]
     },
-    options:{
-      indexAxis:"y",responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{cornerRadius:10,callbacks:{label:ctx=>`Ratio: ${ctx.raw}`}}},
-      scales:{
-        x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
-        y:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
-      }
-    }
+    plugins:[ChartDataLabels]
   });
-  // Pie chart
+
+  // ── Skill Clusters chart ──
+  renderClusterChart(d);
+
+  // ── Pie chart ──
   const pCtx=document.getElementById("chart-pie").getContext("2d");
   chartPie=new Chart(pCtx,{
     type:"doughnut",
     data:{
       labels:["Hard Skills","Soft Skills","Knowledge"],
-      datasets:[{data:[d.typeData.hard,d.typeData.soft,d.typeData.know],backgroundColor:["#BA7517","#0F6E56","#534AB7"],borderWidth:3,borderColor:dark?"#1C1C1A":"#fff",hoverOffset:6}]
+      datasets:[{data:[d.typeData.hard,d.typeData.soft,d.typeData.know],
+        backgroundColor:["#BA7517","#0F6E56","#534AB7"],
+        borderWidth:3,borderColor:dark?"#1C1C1A":"#fff",hoverOffset:6}]
     },
     options:{
       responsive:true,maintainAspectRatio:false,cutout:"60%",
-      plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10},color:tickColor}},tooltip:{cornerRadius:10}}
-    }
+      plugins:{
+        legend:{position:"bottom",labels:{boxWidth:10,font:{size:10},color:tickColor}},
+        tooltip:{cornerRadius:10},
+        datalabels:{color:"#fff",font:{size:11,weight:"bold"},textAlign:"center",
+          display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+          formatter:(v,ctx)=>{
+            if(v===0)return"";
+            const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
+            return total>0?`${v}\n${Math.round(v/total*100)}%`:"";
+          }}
+      }
+    },
+    plugins:[ChartDataLabels]
   });
-  // Cluster cards
-  renderClusterCards(d);
-  // Per-ad breakdown
+
   renderAdGrid(d);
 }
 
-function renderClusterCards(d){
-  const g=document.getElementById("cluster-grid");if(!g)return;
-  g.innerHTML=d.clusters.map(c=>{
-    const ratioClass=c.ratio>1.2?"hi":c.ratio<0.8?"lo":"mid";
-    const icons={hard:"🔧",soft:"💬",know:"📚"};
-    const isActive=selectedCluster===c.id;
-    return`<div class="cl-card${isActive?" active":""}" onclick="selectCluster('${c.id}')">
-      <div class="cl-ico" style="background:${c.bg}">${icons[c.id]||"📌"}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-        <span class="cl-name">${c.label}</span>
-        <span class="cl-ratio ${ratioClass}">${c.ratio}</span>
-      </div>
-      <div class="cl-stats">
-        <div class="cs"><span class="cs-v">${c.entries}</span><span>Freq</span></div>
-        <div class="cs"><span class="cs-v">${c.votes}</span><span>Votes</span></div>
-        <div class="cs" style="margin-left:auto;text-align:right"><span class="cs-v" style="color:${c.gap>=0?"#0F6E56":"#D85A30"}">${c.gap>=0?"+":""}${c.gap}</span><span>Net gap</span></div>
-      </div>
-    </div>`;
-  }).join("");
+/* ── Cluster chart: cluster view OR individual skills view ── */
+function renderClusterChart(d){
+  if(chartRatio){chartRatio.destroy();chartRatio=null;}
+  const dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
+  const tickColor=dark?"#888780":"#5F5E5A";
+  const ctx=document.getElementById("chart-ratio").getContext("2d");
+
+  // Update toggle chip state
+  document.getElementById("cv-cluster")?.classList.toggle("on",clusterViewMode==="cluster");
+  document.getElementById("cv-skills")?.classList.toggle("on",clusterViewMode==="skills");
+
+  const filterBar=document.getElementById("cl-filter-bar");
+  const skillList=document.getElementById("cl-skill-list");
+
+  if(clusterViewMode==="cluster"){
+    if(filterBar)filterBar.style.display="none";
+    if(skillList)skillList.style.display="none";
+    // Sorted by votes desc
+    const sorted=[...d.semClusters].sort((a,b)=>b.votes-a.votes);
+    chartRatio=new Chart(ctx,{
+      type:"bar",
+      data:{
+        labels:sorted.map(c=>c.label),
+        datasets:[
+          {label:"Skills (freq)",data:sorted.map(c=>c.entries),backgroundColor:sorted.map(c=>c.color+"55"),borderRadius:5,barThickness:20},
+          {label:"Votes",data:sorted.map(c=>c.votes),backgroundColor:sorted.map(c=>c.color),borderRadius:5,barThickness:20},
+        ]
+      },
+      options:{
+        indexAxis:"y",responsive:true,maintainAspectRatio:false,
+        onClick:(e,els)=>{
+          if(!els.length)return;
+          const cl=sorted[els[0].index];
+          setClusterView("skills");
+          drillCluster(cl.id);
+        },
+        plugins:{
+          legend:{labels:{boxWidth:8,font:{size:10},color:tickColor}},
+          tooltip:{cornerRadius:10,callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.raw}`,
+            afterBody:ctx2=>{
+              const cl=sorted[ctx2[0].dataIndex];
+              return[`Ratio: ${cl.ratio}`,`Net gap: ${cl.gap>=0?"+":""}${cl.gap}`];
+            }
+          }},
+          datalabels:{anchor:"end",align:"end",font:{size:10,weight:"bold"},clip:false,offset:3,
+            color:ctx=>sorted[ctx.dataIndex].color,
+            formatter:v=>v===0?"":v}
+        },
+        layout:{padding:{right:32}},
+        scales:{
+          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+          y:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
+        }
+      },
+      plugins:[ChartDataLabels]
+    });
+    // Add hint
+    if(skillList){skillList.style.display="block";skillList.innerHTML=
+      `<p style="font-size:10px;color:var(--text3);text-align:center;padding:6px">Click a cluster bar to explore its individual skills</p>`;}
+
+  }else{
+    // Individual skills view
+    if(filterBar)filterBar.style.display="flex";
+    // Build cluster chips
+    const chips=SKILL_CLUSTERS.map(cl=>
+      `<button class="qf-chip${selectedSkillCluster===cl.id?" on":""}" onclick="drillCluster('${cl.id}')"
+        style="font-size:10px;padding:2px 9px;${selectedSkillCluster===cl.id?`background:${cl.color};border-color:${cl.color};color:#fff`:`color:${cl.color};border-color:${cl.color}`}">${cl.icon} ${cl.label}</button>`
+    ).join("");
+    filterBar.innerHTML=`<button class="qf-chip${!selectedSkillCluster?" on":""}" onclick="drillCluster(null)" style="font-size:10px;padding:2px 9px">All clusters</button>${chips}`;
+
+    // Get skills for selected cluster (or all)
+    let skills=selectedSkillCluster
+      ? d.annotated.filter(n=>n.cluster===selectedSkillCluster)
+      : d.annotated;
+    // Deduplicate by skill text, summing votes and counting frequency
+    const skillMap={};
+    skills.forEach(n=>{
+      const key=n.t.toLowerCase().trim();
+      if(!skillMap[key]){
+        const cl=SKILL_CLUSTERS.find(c=>c.id===n.cluster)||{color:"#94a3b8",label:"Other"};
+        skillMap[key]={label:n.t,freq:0,votes:0,lane:n.l,cluster:n.cluster,color:cl.color};
+      }
+      skillMap[key].freq++;
+      skillMap[key].votes+=(n.v||0);
+    });
+    const skillArr=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq).slice(0,20);
+
+    if(!skillArr.length){
+      if(skillList){skillList.style.display="block";skillList.innerHTML=`<p style="font-size:11px;color:var(--text3);padding:8px">No skills in this cluster yet.</p>`;}
+      chartRatio=new Chart(ctx,{type:"bar",data:{labels:[],datasets:[]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},datalabels:{display:false}}}});
+      return;
+    }
+
+    chartRatio=new Chart(ctx,{
+      type:"bar",
+      data:{
+        labels:skillArr.map(s=>s.label),
+        datasets:[
+          {label:"Mentions",data:skillArr.map(s=>s.freq),backgroundColor:skillArr.map(s=>s.color+"55"),borderRadius:5,barThickness:16},
+          {label:"Votes",data:skillArr.map(s=>s.votes),backgroundColor:skillArr.map(s=>s.color),borderRadius:5,barThickness:16},
+        ]
+      },
+      options:{
+        indexAxis:"y",responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{labels:{boxWidth:8,font:{size:10},color:tickColor}},
+          tooltip:{cornerRadius:10,callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.raw}`,
+            afterBody:ctx2=>{
+              const s=skillArr[ctx2[0].dataIndex];
+              const laneName={hard:"Hard skill",soft:"Soft skill",know:"Knowledge"}[s.lane]||s.lane;
+              const clName=SKILL_CLUSTERS.find(c=>c.id===s.cluster)?.label||"Other";
+              return[laneName,`Cluster: ${clName}`];
+            }
+          }},
+          datalabels:{anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
+            color:ctx=>skillArr[ctx.dataIndex].color,
+            formatter:v=>v===0?"":v}
+        },
+        layout:{padding:{right:28,top:4}},
+        scales:{
+          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}},
+          y:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"},maxTicksLimit:20}},
+        }
+      },
+      plugins:[ChartDataLabels]
+    });
+    if(skillList)skillList.style.display="none";
+  }
 }
 
-function selectCluster(id){
-  selectedCluster=selectedCluster===id?null:id;
+function setClusterView(mode){
+  clusterViewMode=mode;
+  if(mode==="cluster")selectedSkillCluster=null;
   const d=getDashData();
-  renderClusterCards(d);
-  const box=document.getElementById("cldetail");
-  if(!selectedCluster){box.style.display="none";return;}
-  const cl=d.clusters.find(c=>c.id===selectedCluster);
-  if(!cl){box.style.display="none";return;}
-  document.getElementById("cldet-title").textContent=cl.label+" — Detailed Weighting";
-  const sorted=[...cl.items].sort((a,b)=>b.v-a.v);
-  const adMap={};ADS.forEach(a=>adMap[a.id]=a.co);
-  document.getElementById("cldet-body").innerHTML=sorted.map(n=>
-    `<tr>
-      <td><span class="type-badge ${n.l}">${n.l}</span></td>
-      <td style="font-weight:600">${n.t}</td>
-      <td style="color:var(--text2);font-size:10px">${adMap[n.a]||"Ad "+n.a}</td>
-      <td style="text-align:center"><span class="vweight ${n.v>0?"pos":"zero"}">${n.v}</span></td>
-    </tr>`
-  ).join("");
-  box.style.display="block";
+  renderClusterChart(d);
 }
 
-function closeCluster(){
-  selectedCluster=null;
-  document.getElementById("cldetail").style.display="none";
+function drillCluster(id){
+  selectedSkillCluster=id;
+  clusterViewMode="skills";
   const d=getDashData();
-  renderClusterCards(d);
+  renderClusterChart(d);
 }
 
 function renderAdGrid(d){
