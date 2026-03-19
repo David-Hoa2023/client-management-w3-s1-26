@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Speed Decode — Shared Frequency Board</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --amber-50:#FAEEDA;--amber-800:#633806;
@@ -248,6 +250,17 @@
   .sc-badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:20px;font-size:9px;font-weight:700;background:#EEF2FF;color:#534AB7;margin-left:4px}
   .sc-badge.live{background:#E1F5EE;color:#085041}
 
+  /* Quick date filter chips */
+  .qf-row{display:flex;gap:5px;flex-wrap:wrap;padding:8px 16px;border-bottom:0.5px solid var(--border);background:var(--bg2);flex-shrink:0}
+  .qf-chip{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .12s}
+  .qf-chip:hover{background:var(--bg3);border-color:var(--text3)}
+  .qf-chip.on{background:#534AB7;color:#fff;border-color:#534AB7}
+
+  /* Firebase status */
+  .fb-status{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;padding:5px 16px;border-bottom:0.5px solid var(--border);background:var(--bg);flex-shrink:0;color:var(--text3)}
+  .fb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+  .fb-dot.ok{background:#10b981}.fb-dot.err{background:#ef4444}.fb-dot.spin{background:#f59e0b;animation:pulse .8s infinite}
+
   /* Per-ad breakdown */
   .ad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
   @media(max-width:480px){.ad-grid{grid-template-columns:repeat(2,1fr)}}
@@ -468,7 +481,20 @@
   <div id="sess-drawer">
     <div class="sess-hdr">
       <h2>💾 Session Archive</h2>
-      <button class="sess-close" onclick="closeSessions()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="fb-status" id="fb-status" style="padding:0;border:none;background:none">
+          <div class="fb-dot spin" id="fb-dot"></div>
+          <span id="fb-label">Connecting…</span>
+        </div>
+        <button class="sess-close" onclick="closeSessions()">✕</button>
+      </div>
+    </div>
+
+    <!-- Firebase status bar -->
+    <div class="fb-status" id="fb-status-bar">
+      <div class="fb-dot spin" id="fb-dot2"></div>
+      <span id="fb-label2">Connecting to Firebase…</span>
+      <span style="margin-left:auto;color:var(--text3)">speeddecode/sessions</span>
     </div>
 
     <!-- Save current session -->
@@ -484,20 +510,31 @@
       </div>
     </div>
 
+    <!-- Quick date filters -->
+    <div class="qf-row" id="qf-row">
+      <button class="qf-chip" id="qf-all"      onclick="applyQuickFilter('all')">All</button>
+      <button class="qf-chip" id="qf-today"    onclick="applyQuickFilter('today')">Today</button>
+      <button class="qf-chip on" id="qf-yesterday" onclick="applyQuickFilter('yesterday')">Yesterday</button>
+      <button class="qf-chip" id="qf-week"     onclick="applyQuickFilter('week')">This week</button>
+      <button class="qf-chip" id="qf-month"    onclick="applyQuickFilter('month')">This month</button>
+    </div>
+
     <!-- Filters -->
     <div class="sess-filter">
       <div class="sess-filter-row">
         <span class="sf-label">From</span>
-        <input class="sess-date" type="date" id="sf-from" oninput="renderSessionList()">
+        <input class="sess-date" type="date" id="sf-from" oninput="onManualDateFilter()">
         <span class="sf-label" style="text-align:center;width:20px">To</span>
-        <input class="sess-date" type="date" id="sf-to" oninput="renderSessionList()">
+        <input class="sess-date" type="date" id="sf-to" oninput="onManualDateFilter()">
         <span class="sess-filter-clear" onclick="clearSessFilter()">Clear</span>
       </div>
       <input class="sess-search" type="text" id="sf-search" placeholder="🔍  Search by label or saved by…" oninput="renderSessionList()">
     </div>
 
     <!-- Session list -->
-    <div class="sess-list" id="sess-list"></div>
+    <div class="sess-list" id="sess-list">
+      <div class="sess-empty">⏳<br>Loading sessions from Firebase…</div>
+    </div>
   </div>
 </div>
 
@@ -781,29 +818,74 @@ function renderLog(){
 document.getElementById("nmin").focus();
 
 /* ────────────────────────────────────────────────
-   SESSION MANAGER
+   SESSION MANAGER — Firebase Realtime Database
 ──────────────────────────────────────────────── */
-const SK_SESS="sd_sessions_v2";
+const SK_SESS_CACHE="sd_sessions_fb_cache_v1"; // localStorage offline cache key
 
-function loadSessions(){
-  try{return JSON.parse(localStorage.getItem(SK_SESS))||[];}
-  catch(e){return[];}
-}
-function saveSessions(arr){
-  try{localStorage.setItem(SK_SESS,JSON.stringify(arr));}catch(e){}
+/* ── Firebase init ── */
+const FB_CONFIG={
+  apiKey:"AIzaSyAvquUv80qhWYre6I5jV8TR0nqF8dU4ktE",
+  authDomain:"test-4043d.firebaseapp.com",
+  databaseURL:"https://test-4043d-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"test-4043d",
+  storageBucket:"test-4043d.firebasestorage.app",
+  messagingSenderId:"122614928987",
+  appId:"1:122614928987:web:95e6f33112e43934fed17e"
+};
+firebase.initializeApp(FB_CONFIG);
+const fbDb=firebase.database();
+const SESS_REF=fbDb.ref("speeddecode/sessions");
+
+/* ── Connection state ── */
+let fbOnline=false;
+let fbSessions=[];           // master list populated by real-time listener
+let sessDrawerOpen=false;
+let activeQuickFilter="yesterday"; // default to yesterday on open
+
+fbDb.ref(".info/connected").on("value",snap=>{
+  fbOnline=!!snap.val();
+  setFbStatus(fbOnline?"ok":"err", fbOnline?"Firebase connected":"Offline — showing cached data");
+});
+
+function setFbStatus(state,text){
+  ["fb-dot","fb-dot2"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.className="fb-dot "+state;}
+  });
+  ["fb-label","fb-label2"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.textContent=text;
+  });
 }
 
-function doSaveSession(){
+/* ── Real-time listener ── */
+SESS_REF.orderByChild("savedAt").on("value",snapshot=>{
+  fbSessions=[];
+  snapshot.forEach(child=>{
+    fbSessions.unshift({id:child.key,...child.val()});
+  });
+  // Cache to localStorage for offline fallback
+  try{localStorage.setItem(SK_SESS_CACHE,JSON.stringify(fbSessions));}catch(e){}
+  if(sessDrawerOpen)renderSessionList();
+},err=>{
+  // Firebase read failed — fall back to local cache
+  console.warn("Firebase read error:",err);
+  try{fbSessions=JSON.parse(localStorage.getItem(SK_SESS_CACHE))||[];}catch(e){fbSessions=[];}
+  setFbStatus("err","Offline — cached data");
+  if(sessDrawerOpen)renderSessionList();
+});
+
+/* ── Save session to Firebase ── */
+async function doSaveSession(){
   const labelEl=document.getElementById("sess-label-input");
-  const rawLabel=(labelEl?labelEl.value.trim():"");
+  const rawLabel=labelEl?labelEl.value.trim():"";
   const now=new Date();
   const autoLabel=`Session ${now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} ${now.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`;
   const label=rawLabel||autoLabel;
-  const sessions=loadSessions();
   const snap={
-    id:"s_"+Date.now(),
     label,
     savedAt:now.toISOString(),
+    savedAtMs:now.getTime(),   // numeric — used for orderByChild queries
     savedBy:currentUser||"Unknown",
     noteCount:notes.length,
     voteCount:Object.values(votes).reduce((s,a)=>s+(a||[]).length,0),
@@ -812,19 +894,43 @@ function doSaveSession(){
     votes:JSON.parse(JSON.stringify(votes)),
     nid
   };
-  sessions.unshift(snap);
-  saveSessions(sessions);
+
+  if(fbOnline){
+    try{
+      const ref=await SESS_REF.push(snap);
+      if(labelEl)labelEl.value="";
+      showSaveToast(label,"firebase");
+      return;
+    }catch(e){console.warn("Firebase write failed, caching locally:",e);}
+  }
+  // Offline fallback — save to localStorage pending queue
+  const pending=JSON.parse(localStorage.getItem("sd_sess_pending")||"[]");
+  snap.id="local_"+Date.now();
+  pending.push(snap);
+  localStorage.setItem("sd_sess_pending",JSON.stringify(pending));
   if(labelEl)labelEl.value="";
-  showSaveToast(label);
-  renderSessionList();
+  showSaveToast(label,"local");
 }
 
-function showSaveToast(label){
+/* Flush any pending offline saves when connection restored */
+fbDb.ref(".info/connected").on("value",async snap=>{
+  if(!snap.val())return;
+  try{
+    const pending=JSON.parse(localStorage.getItem("sd_sess_pending")||"[]");
+    if(!pending.length)return;
+    for(const s of pending){delete s.id;await SESS_REF.push(s);}
+    localStorage.removeItem("sd_sess_pending");
+    console.log("Flushed",pending.length,"offline session(s) to Firebase");
+  }catch(e){}
+});
+
+function showSaveToast(label,source){
   const meta=document.getElementById("sess-save-meta");
   if(!meta)return;
   const orig=meta.innerHTML;
-  meta.innerHTML=`<span style="color:#0F6E56;font-weight:700">✓ Saved: "${label}"</span>`;
-  setTimeout(()=>{meta.innerHTML=orig;updateSessMeta();},2500);
+  const icon=source==="firebase"?"☁️":"💾";
+  meta.innerHTML=`<span style="color:#0F6E56;font-weight:700">${icon} Saved: "${label}"</span>`;
+  setTimeout(()=>{meta.innerHTML=orig;updateSessMeta();},2800);
 }
 
 function updateSessMeta(){
@@ -836,14 +942,57 @@ function updateSessMeta(){
   if(nu)nu.textContent=currentUser||"—";
 }
 
-function getSessionFilters(){
-  const from=document.getElementById("sf-from")?.value||"";
-  const to=document.getElementById("sf-to")?.value||"";
-  const q=(document.getElementById("sf-search")?.value||"").toLowerCase().trim();
-  return{from,to,q};
+/* ── Quick date filter ── */
+function toLocalYMD(date){
+  // Returns YYYY-MM-DD in local timezone
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,"0");
+  const d=String(date.getDate()).padStart(2,"0");
+  return`${y}-${m}-${d}`;
+}
+
+function applyQuickFilter(id){
+  activeQuickFilter=id;
+  // Highlight active chip
+  ["all","today","yesterday","week","month"].forEach(k=>{
+    document.getElementById("qf-"+k)?.classList.toggle("on",k===id);
+  });
+  const today=new Date();
+  const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);
+  const weekStart=new Date(today);weekStart.setDate(today.getDate()-today.getDay());
+  const monthStart=new Date(today.getFullYear(),today.getMonth(),1);
+
+  const from=document.getElementById("sf-from");
+  const to=document.getElementById("sf-to");
+  const todayStr=toLocalYMD(today);
+
+  const map={
+    all:      {f:"",t:""},
+    today:    {f:todayStr,t:todayStr},
+    yesterday:{f:toLocalYMD(yesterday),t:toLocalYMD(yesterday)},
+    week:     {f:toLocalYMD(weekStart),t:todayStr},
+    month:    {f:toLocalYMD(monthStart),t:todayStr},
+  };
+  const{f,t}=map[id]||{f:"",t:""};
+  if(from)from.value=f;
+  if(to)to.value=t;
+  renderSessionList();
+}
+
+function onManualDateFilter(){
+  // Deselect quick chips when user edits dates manually
+  activeQuickFilter=null;
+  ["all","today","yesterday","week","month"].forEach(k=>{
+    document.getElementById("qf-"+k)?.classList.remove("on");
+  });
+  renderSessionList();
 }
 
 function clearSessFilter(){
+  activeQuickFilter="all";
+  ["all","today","yesterday","week","month"].forEach(k=>{
+    document.getElementById("qf-"+k)?.classList.toggle("on",k==="all");
+  });
   const f=document.getElementById("sf-from");
   const t=document.getElementById("sf-to");
   const s=document.getElementById("sf-search");
@@ -851,57 +1000,60 @@ function clearSessFilter(){
   renderSessionList();
 }
 
+/* ── Render list ── */
 function renderSessionList(){
   const list=document.getElementById("sess-list");
   if(!list)return;
-  const sessions=loadSessions();
-  const{from,to,q}=getSessionFilters();
 
-  const filtered=sessions.filter(s=>{
-    const d=s.savedAt.slice(0,10); // YYYY-MM-DD
+  const from=document.getElementById("sf-from")?.value||"";
+  const to=document.getElementById("sf-to")?.value||"";
+  const q=(document.getElementById("sf-search")?.value||"").toLowerCase().trim();
+
+  const filtered=fbSessions.filter(s=>{
+    const d=s.savedAt?s.savedAt.slice(0,10):"";
     if(from&&d<from)return false;
     if(to&&d>to)return false;
-    if(q&&!(s.label.toLowerCase().includes(q)||s.savedBy.toLowerCase().includes(q)))return false;
+    if(q&&!(s.label?.toLowerCase().includes(q)||s.savedBy?.toLowerCase().includes(q)))return false;
     return true;
   });
 
-  const count=document.createElement("div");
-  count.className="sess-count";
-  count.textContent=filtered.length===0?"No sessions found":`${filtered.length} session${filtered.length!==1?"s":""} ${sessions.length!==filtered.length?"(filtered from "+sessions.length+" total)":""}`;
-
   if(!filtered.length){
-    list.innerHTML=`<div class="sess-count">${count.textContent}</div><div class="sess-empty">📭<br>No sessions match your filters.<br>Save your first snapshot above.</div>`;
+    const hint=fbSessions.length
+      ?`No sessions in this date range.<br><span style="font-size:10px">${fbSessions.length} total session${fbSessions.length!==1?"s":""} in archive.</span>`
+      :"No sessions saved yet.<br>Use <b>Save snapshot</b> above.";
+    list.innerHTML=`<div class="sess-empty">📭<br>${hint}</div>`;
     return;
   }
 
-  // Group by date
+  // Group by calendar day
   const groups={};
   filtered.forEach(s=>{
-    const day=new Date(s.savedAt).toLocaleDateString("en-GB",{weekday:"short",day:"2-digit",month:"short",year:"numeric"});
+    const day=new Date(s.savedAt).toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
     if(!groups[day])groups[day]=[];
     groups[day].push(s);
   });
 
-  let html=`<div class="sess-count">${count.textContent}</div>`;
+  const totalLabel=`${filtered.length} session${filtered.length!==1?"s":""}${fbSessions.length!==filtered.length?` · ${fbSessions.length} total in archive`:""}`;
+  let html=`<div class="sess-count">${totalLabel} · ${fbOnline?"☁️ Firebase":"💾 Cached"}</div>`;
+
   Object.entries(groups).forEach(([day,items])=>{
-    html+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:4px 2px 4px">${day}</div>`;
+    html+=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:6px 2px 4px;border-top:0.5px solid var(--border);margin-top:4px">${day}</div>`;
     items.forEach(s=>{
       const d=new Date(s.savedAt);
       const timeStr=d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-      const typeColors={hard:"#BA7517",soft:"#0F6E56",know:"#534AB7"};
-      // Lane breakdown pills
       const laneSummary=s.notes?[
         {l:"hard",count:s.notes.filter(n=>n.l==="hard").length,c:"#BA7517",bg:"#FAEEDA"},
         {l:"soft",count:s.notes.filter(n=>n.l==="soft").length,c:"#0F6E56",bg:"#E1F5EE"},
         {l:"know",count:s.notes.filter(n=>n.l==="know").length,c:"#534AB7",bg:"#EEEDFE"},
       ]:[];
-      html+=`<div class="sess-card" id="sc-${s.id}">
+      const firebaseKey=s.id||"";
+      html+=`<div class="sess-card" id="sc-${firebaseKey}">
         <div class="sc-top">
           <div class="sc-ico">📋</div>
           <div class="sc-main">
-            <div class="sc-name" title="${s.label}">${s.label}</div>
+            <div class="sc-name" title="${s.label||""}">${s.label||"Untitled"}</div>
             <div class="sc-date">🕐 ${timeStr} &nbsp;·&nbsp; 📅 ${d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</div>
-            <div class="sc-by">Saved by <b>${s.savedBy}</b></div>
+            <div class="sc-by">Saved by <b>${s.savedBy||"Unknown"}</b></div>
           </div>
         </div>
         <div class="sc-stats">
@@ -911,10 +1063,10 @@ function renderSessionList(){
           ${laneSummary.map(l=>`<div class="sc-stat"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${l.bg};border:1px solid ${l.c};margin-right:3px"></span><b style="color:${l.c}">${l.count}</b> ${l.l}</div>`).join("")}
         </div>
         <div class="sc-actions">
-          <button class="sc-btn restore" onclick="restoreSession('${s.id}')">↩ Restore board</button>
-          <button class="sc-btn" onclick="previewSession('${s.id}')">👁 Preview</button>
-          ${isAdmin?`<button class="sc-btn del" onclick="deleteSession('${s.id}')">🗑 Delete</button>`:""}
-          <span style="margin-left:auto;font-size:9px;color:var(--text3);align-self:center">${s.id}</span>
+          <button class="sc-btn restore" onclick="restoreSession('${firebaseKey}')">↩ Restore board</button>
+          <button class="sc-btn" onclick="previewSession('${firebaseKey}')">👁 Preview</button>
+          ${isAdmin?`<button class="sc-btn del" onclick="deleteSession('${firebaseKey}')">🗑 Delete</button>`:""}
+          <span style="margin-left:auto;font-size:9px;color:var(--text3);align-self:center;font-family:monospace">${firebaseKey.slice(-6)}</span>
         </div>
       </div>`;
     });
@@ -922,13 +1074,13 @@ function renderSessionList(){
   list.innerHTML=html;
 }
 
+/* ── Restore ── */
 function restoreSession(id){
-  const sessions=loadSessions();
-  const snap=sessions.find(s=>s.id===id);
+  const snap=fbSessions.find(s=>s.id===id);
   if(!snap)return;
   showBanner(`Restore "${snap.label}"? The current board will be replaced.`,()=>{
-    notes=JSON.parse(JSON.stringify(snap.notes));
-    votes=JSON.parse(JSON.stringify(snap.votes));
+    notes=JSON.parse(JSON.stringify(snap.notes||[]));
+    votes=JSON.parse(JSON.stringify(snap.votes||{}));
     nid=snap.nid||200;
     saveLocal();
     updateVoteCounter();
@@ -940,22 +1092,20 @@ function restoreSession(id){
   });
 }
 
+/* ── Preview ── */
 function previewSession(id){
-  const sessions=loadSessions();
-  const snap=sessions.find(s=>s.id===id);
+  const snap=fbSessions.find(s=>s.id===id);
   if(!snap)return;
-  // Build a compact skill list grouped by lane
   const laneNames={hard:"Hard Skills",soft:"Soft Skills",know:"Knowledge"};
   const adNames={};ADS.forEach(a=>adNames[a.id]=a.co);
-  let msg=`"${snap.label}" — ${new Date(snap.savedAt).toLocaleString()}\n\n`;
+  let msg=`"${snap.label}" — ${new Date(snap.savedAt).toLocaleString()}\nSaved by: ${snap.savedBy||"Unknown"}\n\n`;
   ["hard","soft","know"].forEach(l=>{
-    const items=snap.notes.filter(n=>n.l===l);
+    const items=(snap.notes||[]).filter(n=>n.l===l);
     if(!items.length)return;
     msg+=`${laneNames[l]} (${items.length}):\n`;
     items.forEach(n=>msg+=`  • ${n.t} [${adNames[n.a]||"Ad"+n.a}]${n.v>0?" — "+n.v+" vote"+(n.v!==1?"s":""):""}\n`);
     msg+="\n";
   });
-  // Use our custom banner as a simple alert display
   const b=document.getElementById("cbanner");
   document.getElementById("cbannertext").innerHTML=
     `<pre style="font-size:10px;line-height:1.5;max-height:220px;overflow-y:auto;text-align:left;white-space:pre-wrap">${msg}</pre>`;
@@ -963,7 +1113,6 @@ function previewSession(id){
   document.getElementById("cbanner").querySelector(".no").textContent="Close";
   document.getElementById("cyes").onclick=null;
   b.style.display="flex";
-  // Restore normal banner after close
   document.getElementById("cbanner").querySelector(".no").onclick=()=>{
     hideBanner();
     document.getElementById("cyes").style.display="inline-block";
@@ -972,25 +1121,29 @@ function previewSession(id){
   };
 }
 
+/* ── Delete (admin only — removes from Firebase) ── */
 function deleteSession(id){
   if(!isAdmin)return;
-  const sessions=loadSessions();
-  const snap=sessions.find(s=>s.id===id);
+  const snap=fbSessions.find(s=>s.id===id);
   if(!snap)return;
-  showBanner(`Delete session "${snap.label}"? This cannot be undone.`,()=>{
-    saveSessions(sessions.filter(s=>s.id!==id));
-    renderSessionList();
+  showBanner(`Delete "${snap.label}"? This removes it from Firebase permanently.`,()=>{
+    SESS_REF.child(id).remove().catch(e=>console.error("Delete failed:",e));
+    // renderSessionList will fire automatically via the real-time listener
   });
 }
 
+/* ── Open / close drawer ── */
 function openSessions(){
+  sessDrawerOpen=true;
   updateSessMeta();
-  renderSessionList();
+  // Apply default "yesterday" filter on first open
+  applyQuickFilter(activeQuickFilter||"yesterday");
   document.getElementById("sess-overlay").style.display="block";
   requestAnimationFrame(()=>document.getElementById("sess-drawer").classList.add("open"));
   document.getElementById("sess-label-input")?.focus();
 }
 function closeSessions(){
+  sessDrawerOpen=false;
   document.getElementById("sess-drawer").classList.remove("open");
   setTimeout(()=>{document.getElementById("sess-overlay").style.display="none";},300);
 }
