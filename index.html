@@ -1308,24 +1308,33 @@ function getDashData(){
       gap:voteSum-entries,items:otherItems,kw:[],freqPct:0,votePct:0});
   }
 
-  /* Largest-remainder method: round each value to 1dp independently,
-     then add/subtract from the cluster with the largest rounding remainder
-     until the series sums exactly to 100.0 */
-  function distributeToExact100(arr, rawFn){
-    const raws=arr.map(rawFn);
-    const floors=raws.map(v=>Math.floor(v*10)/10);        // floor to 1dp
-    const remainders=raws.map((v,i)=>v-floors[i]);
-    let deficit=+(100-floors.reduce((s,v)=>s+v,0)).toFixed(1);
-    // Sort indices by remainder desc, distribute 0.1 increments
-    const order=[...arr.keys()].sort((a,b)=>remainders[b]-remainders[a]);
-    let i=0;
-    while(deficit>=0.05&&i<order.length){floors[order[i]]+=0.1;floors[order[i]]=+floors[order[i]].toFixed(1);deficit=+(deficit-0.1).toFixed(1);i++;}
-    return floors;
+  /* toIntTenths: returns array of integers summing to exactly 1000,
+     using largest-remainder method. Pure integer arithmetic — no FP error. */
+  function toIntTenths(arr, rawFn){
+    const total=arr.reduce((s,c)=>s+rawFn(c),0);
+    if(!total)return arr.map(()=>0);
+    const rawT=arr.map(c=>rawFn(c)/total*1000);
+    const floors=rawT.map(v=>Math.floor(v));
+    const deficit=1000-floors.reduce((a,b)=>a+b,0);           // exact: integer sum
+    rawT.map((v,i)=>({i,frac:v-floors[i]}))
+        .sort((a,b)=>b.frac-a.frac)
+        .slice(0,deficit)
+        .forEach(({i})=>floors[i]++);
+    return floors;  // integers, sum = exactly 1000
   }
 
-  const freqPcts=distributeToExact100(semClusters,c=>c.entries/totalNotes*100);
-  const votePcts=distributeToExact100(semClusters,c=>resolvedVotes>0?c.votes/resolvedVotes*100:0);
-  semClusters.forEach((c,i)=>{c.freqPct=freqPcts[i];c.votePct=votePcts[i];});
+  /* Format an integer tenth as a 1-dp percentage string */
+  const T=t=>(t/10).toFixed(1)+"%";  // e.g. 334 → "33.4%"
+
+  const freqT=toIntTenths(semClusters,c=>c.entries);          // use raw counts
+  const voteT=toIntTenths(semClusters,c=>c.votes);
+  semClusters.forEach((c,i)=>{
+    c.freqT=freqT[i];   // integer tenths (0-1000)
+    c.voteT=voteT[i];
+    // keep decimal strings for tooltip/label display — computed once from integers
+    c.freqPct=(c.freqT/10).toFixed(1);  // string e.g. "33.4"
+    c.votePct=(c.voteT/10).toFixed(1);  // string e.g. "26.7"
+  });
 
   // Per-lane clusters
   const clusters=LANES_DASH.map(lane=>{
@@ -1592,24 +1601,16 @@ function renderDash(){
 
   // ── Volume vs Value Matrix — normalised % shares ──
   const mCtx=document.getElementById("chart-matrix").getContext("2d");
-  // Sort by vote share descending so highest-priority clusters lead
-  const matrixData=[...d.semClusters].sort((a,b)=>b.votePct-a.votePct);
+  const matrixData=[...d.semClusters].sort((a,b)=>b.voteT-a.freqT);
   chartMatrix=new Chart(mCtx,{
     type:"bar",
     data:{
       labels:matrixData.map(c=>c.label),
       datasets:[
-        {
-          label:"Skill share % (frequency)",
-          data:matrixData.map(c=>c.freqPct),
-          backgroundColor:"#CBD5E1",borderRadius:6,barThickness:24,
-          borderColor:"#94a3b8",borderWidth:1
-        },
-        {
-          label:"Vote share % (impact)",
-          data:matrixData.map(c=>c.votePct),
-          backgroundColor:matrixData.map(c=>c.color),borderRadius:6,barThickness:24
-        },
+        {label:"Skill share % (frequency)",data:matrixData.map(c=>c.freqT),
+          backgroundColor:"#CBD5E1",borderRadius:6,barThickness:24,borderColor:"#94a3b8",borderWidth:1},
+        {label:"Vote share % (impact)",data:matrixData.map(c=>c.voteT),
+          backgroundColor:matrixData.map(c=>c.color),borderRadius:6,barThickness:24},
       ]
     },
     options:{
@@ -1624,29 +1625,24 @@ function renderDash(){
           },
           afterBody:ctx2=>{
             const cl=matrixData[ctx2[0].dataIndex];
-            const diff=(cl.votePct-cl.freqPct).toFixed(1);
+            const diff=(cl.voteT-cl.freqT)/10;
             const sign=diff>=0?"+":"";
-            const label=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
-            return[`${label}: ${sign}${diff}% vs skill share`,`Ratio: ${cl.ratio}`];
+            return[`${diff>=0?"Over-indexed ▲":"Under-indexed ▼"}: ${sign}${diff.toFixed(1)}%`,`Ratio: ${cl.ratio}`];
           }
         }},
         datalabels:{
-          anchor:"end",align:"end",
-          font:{size:10,weight:"bold"},
+          anchor:"end",align:"end",font:{size:10,weight:"bold"},
           color:ctx=>ctx.datasetIndex===1?matrixData[ctx.dataIndex].color:"#64748b",
-          formatter:v=>v===0?"":v+"%",
+          formatter:(v,ctx)=>v===0?"":matrixData[ctx.dataIndex][ctx.datasetIndex===0?"freqPct":"votePct"]+"%",
           offset:2,clip:false
         },
-        // Annotation: reference line at equal share would need plugin; we label axes clearly instead
       },
       layout:{padding:{top:22}},
       scales:{
         x:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"}}},
-        y:{
-          grid:{color:gridColor},
-          ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
-          title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
-        },
+        y:{grid:{color:gridColor},
+          ticks:{color:tickColor,font:{size:10},callback:v=>(v/10).toFixed(1)+"%"},
+          title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}},
       }
     },
     plugins:[ChartDataLabels]
@@ -1685,6 +1681,22 @@ function renderDash(){
   renderAdGrid(d);
 }
 
+/* Shared integer-tenths helper — returns integers summing to exactly 1000 */
+function integerTenths(arr, rawFn){
+  const total=arr.reduce((s,c)=>s+rawFn(c),0);
+  if(!total)return arr.map(()=>0);
+  const rawT=arr.map(c=>rawFn(c)/total*1000);
+  const floors=rawT.map(v=>Math.floor(v));
+  const deficit=1000-floors.reduce((a,b)=>a+b,0);
+  rawT.map((v,i)=>({i,frac:v-floors[i]}))
+      .sort((a,b)=>b.frac-a.frac)
+      .slice(0,deficit)
+      .forEach(({i})=>floors[i]++);
+  return floors;  // integers, sum = exactly 1000
+}
+/* Format integer tenth as "33.4%" */
+const fmtT=t=>t===0?"0%":(t/10).toFixed(1)+"%";
+
 /* ── Cluster chart: cluster view OR individual skills view ── */
 function renderClusterChart(d){
   if(chartRatio){chartRatio.destroy();chartRatio=null;}
@@ -1692,7 +1704,6 @@ function renderClusterChart(d){
   const gridColor=dark?"rgba(255,255,255,.08)":"rgba(0,0,0,.06)";
   const tickColor=dark?"#888780":"#5F5E5A";
   const ctx=document.getElementById("chart-ratio").getContext("2d");
-  const NUM_ADS=ADS.length; // 6
 
   document.getElementById("cv-cluster")?.classList.toggle("on",clusterViewMode==="cluster");
   document.getElementById("cv-skills")?.classList.toggle("on",clusterViewMode==="skills");
@@ -1704,37 +1715,24 @@ function renderClusterChart(d){
     if(filterBar)filterBar.style.display="none";
     if(skillList)skillList.style.display="none";
 
-    // Sort by vote share descending — same order as matrix
-    const sorted=[...d.semClusters].sort((a,b)=>b.votePct-a.votePct);
+    // Sort by voteT desc (integer, exact comparison)
+    const sorted=[...d.semClusters].sort((a,b)=>b.voteT-a.voteT);
 
     chartRatio=new Chart(ctx,{
       type:"bar",
       data:{
         labels:sorted.map(c=>c.label),
         datasets:[
-          {
-            label:"Skill share % (frequency)",
-            data:sorted.map(c=>c.freqPct),
-            backgroundColor:sorted.map(c=>c.color+"44"),
-            borderColor:sorted.map(c=>c.color+"88"),
-            borderWidth:1,
-            borderRadius:5,barThickness:20
-          },
-          {
-            label:"Vote share % (impact)",
-            data:sorted.map(c=>c.votePct),
-            backgroundColor:sorted.map(c=>c.color),
-            borderRadius:5,barThickness:20
-          },
+          {label:"Skill share %",data:sorted.map(c=>c.freqT),
+            backgroundColor:sorted.map(c=>c.color+"44"),borderColor:sorted.map(c=>c.color+"88"),
+            borderWidth:1,borderRadius:5,barThickness:20},
+          {label:"Vote share %",data:sorted.map(c=>c.voteT),
+            backgroundColor:sorted.map(c=>c.color),borderRadius:5,barThickness:20},
         ]
       },
       options:{
         indexAxis:"y",responsive:true,maintainAspectRatio:false,
-        onClick:(e,els)=>{
-          if(!els.length)return;
-          setClusterView("skills");
-          drillCluster(sorted[els[0].index].id);
-        },
+        onClick:(e,els)=>{if(!els.length)return;setClusterView("skills");drillCluster(sorted[els[0].index].id);},
         plugins:{
           legend:{labels:{boxWidth:8,font:{size:10},color:tickColor}},
           tooltip:{cornerRadius:10,callbacks:{
@@ -1745,71 +1743,45 @@ function renderClusterChart(d){
             },
             afterBody:ctx2=>{
               const cl=sorted[ctx2[0].dataIndex];
-              const diff=(cl.votePct-cl.freqPct).toFixed(1);
+              const diff=(cl.voteT-cl.freqT)/10;
               const sign=diff>=0?"+":"";
-              const tag=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
-              return[`${tag}: ${sign}${diff}%`,`Ratio: ${cl.ratio} · Click to drill in`];
+              return[`${diff>=0?"Over-indexed \u25b2":"Under-indexed \u25bc"}: ${sign}${diff.toFixed(1)}%`,`Ratio: ${cl.ratio} \u00b7 Click to drill in`];
             }
           }},
-          datalabels:{
-            anchor:"end",align:"end",font:{size:10,weight:"bold"},clip:false,offset:3,
+          datalabels:{anchor:"end",align:"end",font:{size:10,weight:"bold"},clip:false,offset:3,
             color:ctx2=>sorted[ctx2.dataIndex].color,
-            formatter:v=>v===0?"":v+"%"
-          }
+            formatter:(v,ctx2)=>v===0?"":sorted[ctx2.dataIndex][ctx2.datasetIndex===0?"freqPct":"votePct"]+"%"}
         },
-        layout:{padding:{right:40}},
+        layout:{padding:{right:44}},
         scales:{
-          x:{
-            grid:{color:gridColor},
-            ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
-            title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
-          },
+          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10},callback:v=>(v/10).toFixed(1)+"%"},
+            title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}},
           y:{grid:{display:false},ticks:{color:tickColor,font:{size:11,weight:"bold"}}},
         }
       },
       plugins:[ChartDataLabels]
     });
-    if(skillList){
-      skillList.style.display="block";
-      skillList.innerHTML=`<p style="font-size:10px;color:var(--text3);text-align:center;padding:6px">Click a cluster bar to explore its individual skills →</p>`;
-    }
+    if(skillList){skillList.style.display="block";
+      skillList.innerHTML=`<p style="font-size:10px;color:var(--text3);text-align:center;padding:6px">Click a cluster bar to explore its individual skills \u2192</p>`;}
 
   }else{
-    // ── Individual skills view ──
     if(filterBar)filterBar.style.display="flex";
-
     const chips=SKILL_CLUSTERS.map(cl=>
       `<button class="qf-chip${selectedSkillCluster===cl.id?" on":""}" onclick="drillCluster('${cl.id}')"
         style="font-size:10px;padding:2px 9px;${selectedSkillCluster===cl.id?`background:${cl.color};border-color:${cl.color};color:#fff`:`color:${cl.color};border-color:${cl.color}`}">${cl.icon} ${cl.label}</button>`
     ).join("");
     filterBar.innerHTML=`<button class="qf-chip${!selectedSkillCluster?" on":""}" onclick="drillCluster(null)" style="font-size:10px;padding:2px 9px">All clusters</button>${chips}`;
 
-    const skills=selectedSkillCluster
-      ? d.annotated.filter(n=>n.cluster===selectedSkillCluster)
-      : d.annotated;
-
-    // Deduplicate by skill text, summing votes and counting ad mentions
+    const skills=selectedSkillCluster?d.annotated.filter(n=>n.cluster===selectedSkillCluster):d.annotated;
     const skillMap={};
     skills.forEach(n=>{
       const key=n.t.toLowerCase().trim();
-      if(!skillMap[key]){
-        const cl=SKILL_CLUSTERS.find(c=>c.id===n.cluster)||{color:"#94a3b8"};
-        skillMap[key]={label:n.t,freq:0,votes:0,lane:n.l,cluster:n.cluster,color:cl.color};
-      }
-      skillMap[key].freq++;
-      skillMap[key].votes+=(n.v||0);
+      if(!skillMap[key]){const cl=SKILL_CLUSTERS.find(c=>c.id===n.cluster)||{color:"#94a3b8"};
+        skillMap[key]={label:n.t,freq:0,votes:0,lane:n.l,cluster:n.cluster,color:cl.color};}
+      skillMap[key].freq++;skillMap[key].votes+=(n.v||0);
     });
 
-    // Normalise with remainder correction so both series sum to 100%
-    const totalSkillEntries=Object.values(skillMap).reduce((s,x)=>s+x.freq,0)||1;
-    const totalSkillVotes=Object.values(skillMap).reduce((s,x)=>s+x.votes,0)||1;
-    const allSkills=Object.values(skillMap)
-      .map(s=>({...s,freqPct:s.freq/totalSkillEntries*100,votePct:s.votes/totalSkillVotes*100}))
-      .sort((a,b)=>b.votePct-a.votePct||b.freqPct-a.freqPct);
-    // Apply largest-remainder rounding to top 20 slice
-    const skillArr=allSkills.slice(0,20);
-    // (remaining % beyond top-20 not shown, so don't force 100 on slice — display as-is with 1dp)
-    skillArr.forEach(s=>{s.freqPct=+s.freqPct.toFixed(1);s.votePct=+s.votePct.toFixed(1);});
+    const skillArr=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq).slice(0,20);
 
     if(!skillArr.length){
       if(skillList){skillList.style.display="block";skillList.innerHTML=`<p style="font-size:11px;color:var(--text3);padding:8px">No skills in this cluster yet.</p>`;}
@@ -1818,25 +1790,25 @@ function renderClusterChart(d){
       return;
     }
 
+    // Integer tenths within shown set — sum = exactly 1000 each
+    const freqTenths=integerTenths(skillArr,s=>s.freq);
+    const voteTenths=integerTenths(skillArr,s=>s.votes);
+    skillArr.forEach((s,i)=>{
+      s.freqT=freqTenths[i];s.voteT=voteTenths[i];
+      s.freqPct=(s.freqT/10).toFixed(1);
+      s.votePct=(s.voteT/10).toFixed(1);
+    });
+
     chartRatio=new Chart(ctx,{
       type:"bar",
       data:{
         labels:skillArr.map(s=>s.label),
         datasets:[
-          {
-            label:"Ad coverage % (freq)",
-            data:skillArr.map(s=>s.freqPct),
-            backgroundColor:skillArr.map(s=>s.color+"44"),
-            borderColor:skillArr.map(s=>s.color+"88"),
-            borderWidth:1,
-            borderRadius:5,barThickness:16
-          },
-          {
-            label:"Vote share % (impact)",
-            data:skillArr.map(s=>s.votePct),
-            backgroundColor:skillArr.map(s=>s.color),
-            borderRadius:5,barThickness:16
-          },
+          {label:"Mention share %",data:skillArr.map(s=>s.freqT),
+            backgroundColor:skillArr.map(s=>s.color+"44"),borderColor:skillArr.map(s=>s.color+"88"),
+            borderWidth:1,borderRadius:5,barThickness:16},
+          {label:"Vote share %",data:skillArr.map(s=>s.voteT),
+            backgroundColor:skillArr.map(s=>s.color),borderRadius:5,barThickness:16},
         ]
       },
       options:{
@@ -1846,32 +1818,27 @@ function renderClusterChart(d){
           tooltip:{cornerRadius:10,callbacks:{
             label:ctx2=>{
               const s=skillArr[ctx2.dataIndex];
-              if(ctx2.datasetIndex===0)return`Ad coverage: ${s.freqPct}% (${s.freq}/${NUM_ADS} ads)`;
+              if(ctx2.datasetIndex===0)return`Mention share: ${s.freqPct}% (${s.freq} mentions)`;
               return`Vote share: ${s.votePct}% (${s.votes} votes)`;
             },
             afterBody:ctx2=>{
               const s=skillArr[ctx2.dataIndex];
-              const diff=(s.votePct-s.freqPct).toFixed(1);
+              const diff=(s.voteT-s.freqT)/10;
               const sign=diff>=0?"+":"";
-              const tag=diff>=0?"Over-indexed ▲":"Under-indexed ▼";
+              const tag=diff>=0?"Over-indexed \u25b2":"Under-indexed \u25bc";
               const laneName={hard:"Hard skill",soft:"Soft skill",know:"Knowledge"}[s.lane]||s.lane;
               const clName=SKILL_CLUSTERS.find(c=>c.id===s.cluster)?.label||"Other";
-              return[`${tag}: ${sign}${diff}%`,laneName,`Cluster: ${clName}`];
+              return[`${tag}: ${sign}${diff.toFixed(1)}%`,laneName,`Cluster: ${clName}`];
             }
           }},
-          datalabels:{
-            anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
+          datalabels:{anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
             color:ctx2=>skillArr[ctx2.dataIndex].color,
-            formatter:v=>v===0?"":v+"%"
-          }
+            formatter:(v,ctx2)=>v===0?"":skillArr[ctx2.dataIndex][ctx2.datasetIndex===0?"freqPct":"votePct"]+"%"}
         },
-        layout:{padding:{right:36,top:4}},
+        layout:{padding:{right:40,top:4}},
         scales:{
-          x:{
-            grid:{color:gridColor},
-            ticks:{color:tickColor,font:{size:10},callback:v=>v+"%"},
-            title:{display:true,text:"Share of total (%)",color:tickColor,font:{size:9}}
-          },
+          x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10},callback:v=>(v/10).toFixed(1)+"%"},
+            title:{display:true,text:"Share of shown set (%)",color:tickColor,font:{size:9}}},
           y:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"},maxTicksLimit:20}},
         }
       },
