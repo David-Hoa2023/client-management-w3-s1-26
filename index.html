@@ -263,6 +263,61 @@
   .fb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
   .fb-dot.ok{background:#10b981}.fb-dot.err{background:#ef4444}.fb-dot.spin{background:#f59e0b;animation:pulse .8s infinite}
 
+  /* ── ALEX TOOLKIT ── */
+  /* Modal overlay */
+  #alex-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:1rem}
+  #alex-overlay.open{display:flex}
+  .alex-modal{background:var(--bg);border:0.5px solid var(--border2);border-radius:18px;width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+  .alex-modal-hdr{padding:16px 20px 12px;border-bottom:0.5px solid var(--border2);display:flex;align-items:flex-start;gap:12px;flex-shrink:0}
+  .alex-avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#534AB7,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .alex-modal-title{flex:1}
+  .alex-modal-title h3{font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px}
+  .alex-modal-title p{font-size:11px;color:var(--text3);line-height:1.4}
+  .alex-modal-close{width:28px;height:28px;border-radius:7px;border:0.5px solid var(--border2);background:transparent;color:var(--text);font-size:16px;cursor:pointer;flex-shrink:0}
+  .alex-modal-close:hover{background:var(--bg2)}
+  .alex-modal-body{flex:1;overflow-y:auto;padding:16px 20px}
+  .alex-modal-footer{padding:12px 20px;border-top:0.5px solid var(--border2);display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
+
+  /* Context panel */
+  .alex-context{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.6}
+  .alex-context strong{color:var(--text);font-weight:700}
+  .alex-context-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:5px}
+
+  /* Prompt box */
+  .alex-prompt-wrap{position:relative;margin-bottom:10px}
+  .alex-prompt{width:100%;min-height:160px;padding:12px 14px;border:0.5px solid var(--border2);border-radius:10px;background:var(--bg);color:var(--text);font-size:12px;line-height:1.6;resize:vertical;font-family:inherit;outline:none}
+  .alex-prompt:focus{border-color:#534AB7}
+  .alex-prompt-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:5px}
+  .alex-copy-btn{padding:8px 18px;border-radius:8px;border:none;background:#534AB7;color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .alex-copy-btn:hover{opacity:.88}
+  .alex-copy-btn.copied{background:#10b981}
+  .alex-open-btn{padding:8px 14px;border-radius:8px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none}
+  .alex-open-btn:hover{background:var(--bg3)}
+  .alex-tip{font-size:10px;color:var(--text3);line-height:1.5;padding:8px 10px;border-radius:8px;border-left:3px solid #534AB7;background:var(--bg2);margin-top:8px}
+
+  /* Cluster cards with Alex button */
+  .cluster-alex-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:0.5px solid rgba(128,128,128,.12)}
+
+  /* Alex trigger buttons in dashboard */
+  .alex-trigger{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;border:0.5px solid #534AB7;background:transparent;color:#534AB7;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s}
+  .alex-trigger:hover{background:#534AB7;color:#fff}
+  .alex-trigger-sm{padding:3px 9px;font-size:10px;border-radius:6px}
+
+  /* SMART Goal card */
+  #smart-card-panel{display:none;margin-top:.75rem}
+  .smart-card-export{background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem;margin-bottom:.75rem}
+  .smart-card-export h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#534AB7;margin-bottom:.5rem;display:flex;align-items:center;gap:6px}
+  .smart-card-row{display:flex;gap:5px;font-size:11px;padding:4px 0;border-bottom:0.5px solid var(--border)}
+  .smart-card-row:last-child{border-bottom:none}
+  .smart-card-k{font-weight:800;color:#534AB7;width:14px;flex-shrink:0;text-transform:uppercase}
+
+  /* Interview card */
+  .interview-card{background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem;margin-bottom:.75rem}
+  .interview-card h4{font-size:11px;font-weight:800;color:var(--text);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em}
+  .interview-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;margin:2px}
+  .interview-badge.strength{background:var(--teal-50);color:var(--teal-800)}
+  .interview-badge.develop{background:var(--amber-50);color:var(--amber-800)}
+
   /* Per-ad breakdown */
   .ad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
   @media(max-width:480px){.ad-grid{grid-template-columns:repeat(2,1fr)}}
@@ -412,14 +467,119 @@
       <div class="ad-grid" id="ad-grid"></div>
     </div>
 
+    <!-- ── ALEX TOOLKIT ── -->
+    <div class="dash-section">
+      <div class="dash-h" style="margin-bottom:.5rem">
+        <span class="dico" style="background:#F5F3FF;color:#534AB7">🤖</span> Alex Toolkit
+        <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px">Pre-filled prompts for Alex the Account Director · click to open &amp; copy</span>
+      </div>
+
+      <!-- Row 1: Job Ad Decoder + Mock Interviewer -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+
+        <!-- 1. Alex the Job Ad Decoder -->
+        <div style="background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+            <div style="font-size:20px;line-height:1">🔍</div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--text)">Job Ad Decoder</div>
+              <div style="font-size:10px;color:var(--text3)">Week 2 · A1 Steps 2–3</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.75rem">Alex probes your class extraction for gaps — asks one question at a time rather than giving answers.</p>
+          <button class="alex-trigger" onclick="openAlex('decoder')">🤖 Open prompt →</button>
+        </div>
+
+        <!-- 2. Skill Swap Peer Interview -->
+        <div style="background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+            <div style="font-size:20px;line-height:1">🪞</div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--text)">Skill Swap Interview Card</div>
+              <div style="font-size:10px;color:var(--text3)">Week 3 · A1 Steps 3–4</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.75rem">Generates a personal interview card from live vote data — strengths to evidence, development areas to probe.</p>
+          <button class="alex-trigger" onclick="openAlex('interview')">📋 Generate card →</button>
+        </div>
+      </div>
+
+      <!-- Row 2: Mock Interviewer + SMART Workshop -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+
+        <!-- 3. Alex the Mock Interviewer -->
+        <div style="background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+            <div style="font-size:20px;line-height:1">🎤</div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--text)">Mock Interviewer</div>
+              <div style="font-size:10px;color:var(--text3)">Week 3 · Criterion 3 &amp; 5</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.75rem">Alex plays a hiring manager and drills each top-voted skill — pushes for specific examples, coaches when stuck.</p>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="alex-trigger" onclick="openAlex('mock-all')">🤖 All skills →</button>
+            <div id="cluster-mock-btns" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          </div>
+        </div>
+
+        <!-- 4. SMART Goal Workshop -->
+        <div style="background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:1rem">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:.5rem">
+            <div style="font-size:20px;line-height:1">🎯</div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--text)">SMART Goal Workshop</div>
+              <div style="font-size:10px;color:var(--text3)">Week 4 · A1 Steps 5–6 · Criterion 4</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.75rem">Exports shareable SMART goal cards from under-indexed clusters. Use as peer-review worksheet in class.</p>
+          <button class="alex-trigger" onclick="openAlex('smart')">📄 Export goals →</button>
+        </div>
+      </div>
+
+      <!-- 5. Alex the SMART Goal Challenger (full width) -->
+      <div style="background:linear-gradient(135deg,rgba(83,74,183,.12),rgba(139,92,246,.08));border:0.5px solid #534AB7;border-radius:12px;padding:1rem;display:flex;align-items:flex-start;gap:12px">
+        <div style="font-size:24px;line-height:1;flex-shrink:0">⚡</div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:2px">SMART Goal Challenger <span style="font-size:9px;background:#534AB7;color:#fff;padding:1px 6px;border-radius:20px;font-weight:700;margin-left:4px">Most useful for A1</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:.5rem">Week 4 · A1 Criterion 4 · Most common scoring weakness</div>
+          <p style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:.75rem">Alex stress-tests your auto-generated SMART goals from live data. Flags LinkedIn Learning violations, vague measurement, and missing timelines. Iterate 2–3 times until goals pass.</p>
+          <button class="alex-trigger" onclick="openAlex('challenger')">🤖 Challenge my goals with Alex →</button>
+        </div>
+      </div>
+
+    </div>
+
     <div style="padding:.5rem;text-align:center;font-size:10px;color:var(--text3);font-style:italic;font-weight:600;letter-spacing:.04em;text-transform:uppercase">
       Speed Decode Skill Investigator · v2.0 · COMM2384/2767 · Client Management
     </div>
-  </div>
+  </div><!-- end dashpanel -->
 
   <div class="footer">
     Board syncs every 5 seconds across all devices. Share this URL so every student joins the same live session.<br>
     Admin can clear notes or reset votes from the toolbar. · COMM2384/2767 · Client Management
+  </div>
+
+  <!-- ── ALEX MODAL ── -->
+  <div id="alex-overlay" onclick="e=>{if(e.target===this)closeAlex()}">
+    <div class="alex-modal" onclick="event.stopPropagation()">
+      <div class="alex-modal-hdr">
+        <div class="alex-avatar">🤖</div>
+        <div class="alex-modal-title">
+          <h3 id="alex-modal-title">Alex the Account Director</h3>
+          <p id="alex-modal-sub">Career Coach mode · Socratic practice tool</p>
+        </div>
+        <button class="alex-modal-close" onclick="closeAlex()">✕</button>
+      </div>
+      <div class="alex-modal-body" id="alex-modal-body">
+        <!-- populated by openAlex() -->
+      </div>
+      <div class="alex-modal-footer">
+        <button class="alex-copy-btn" id="alex-copy-btn" onclick="copyAlexPrompt()">📋 Copy prompt</button>
+        <a class="alex-open-btn" href="https://claude.ai" target="_blank" rel="noopener">Open Claude.ai ↗</a>
+        <button class="alex-open-btn" onclick="closeAlex()" style="margin-left:auto">Close</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── SESSION MANAGER DRAWER ── -->
@@ -1894,6 +2054,295 @@ function renderAdGrid(d){
       </div>
       <div class="ac-votes">${ad.votes>0?"🔴 "+ad.votes+" vote"+(ad.votes!==1?"s":""):"No votes yet"}</div>
     </div>`).join("");
+
+  // Populate cluster-specific mock interview buttons
+  const cmb=document.getElementById("cluster-mock-btns");
+  if(cmb){
+    const d2=getDashData();
+    cmb.innerHTML=SKILL_CLUSTERS.map(cl=>{
+      const hasSkills=d2.annotated.some(n=>n.cluster===cl.id);
+      if(!hasSkills)return"";
+      return`<button class="alex-trigger alex-trigger-sm" onclick="openAlex('mock-cluster','${cl.id}')"
+        style="border-color:${cl.color};color:${cl.color}" title="${cl.label}">${cl.icon}</button>`;
+    }).join("");
+  }
+}
+
+/* ═══════════════════════════════════════
+   ALEX TOOLKIT
+═══════════════════════════════════════ */
+
+function getSkillSummary(){
+  // Returns structured skill data from board for prompt generation
+  const d=getDashData();
+  const adNames=ADS.map(a=>a.co+" ("+a.loc+")");
+
+  // Deduplicated skill list with frequency and votes
+  const skillMap={};
+  notes.forEach(n=>{
+    const key=n.t.toLowerCase().trim();
+    if(!skillMap[key]){skillMap[key]={label:n.t,freq:0,votes:0,lane:n.l,cluster:assignCluster(n),ads:[]};}
+    skillMap[key].freq++;
+    skillMap[key].votes+=(n.v||0);
+    const adName=ADS.find(a=>a.id===n.a);
+    if(adName&&!skillMap[key].ads.includes(adName.co))skillMap[key].ads.push(adName.co);
+  });
+  const skills=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq);
+
+  // Top voted, zero-voted, under-indexed clusters
+  const topVoted=skills.filter(s=>s.votes>0).slice(0,5);
+  const zeroVoted=skills.filter(s=>s.votes===0).sort((a,b)=>b.freq-a.freq).slice(0,5);
+  const underClusters=d.semClusters.filter(c=>c.entries>0).sort((a,b)=>(b.freqT-b.voteT)-(a.freqT-a.voteT)).slice(0,2);
+
+  // Board snapshot text (Hard/Soft/Knowledge)
+  const byLane={hard:[],soft:[],know:[]};
+  skills.forEach(s=>{if(byLane[s.lane])byLane[s.lane].push(`${s.label} (${s.freq}/${ADS.length} ads${s.votes>0?", "+s.votes+" vote"+(s.votes!==1?"s":""):""})`)});
+
+  return{skills,topVoted,zeroVoted,underClusters,byLane,adNames,totalNotes:notes.length,totalVotes:d.totalVotes};
+}
+
+function buildPrompt(type, clusterId){
+  const s=getSkillSummary();
+  const adList=s.adNames.join(", ");
+  const hardList=s.byLane.hard.slice(0,8).join("; ")||"none identified";
+  const softList=s.byLane.soft.slice(0,8).join("; ")||"none identified";
+  const knowList=s.byLane.know.slice(0,8).join("; ")||"none identified";
+  const topStr=s.topVoted.map(x=>`${x.label} (${x.votes} vote${x.votes!==1?"s":""})`).join(", ")||"no votes cast yet";
+  const zeroStr=s.zeroVoted.map(x=>`${x.label} (in ${x.freq} ad${x.freq!==1?"s":""})`).join(", ")||"none";
+
+  if(type==="decoder"){
+    return`Hi Alex, I am using you in Career Coach mode.
+
+My class just completed a Speed Decode activity analysing six job ads for entry-level account management roles: ${adList}.
+
+Here is what we extracted together:
+
+HARD SKILLS: ${hardList}
+
+SOFT SKILLS: ${softList}
+
+KNOWLEDGE AREAS: ${knowList}
+
+I want to stress-test our extraction. Please ask me one probing question at a time — do not give me a complete list of answers. Start with whichever category you think is most likely to have gaps. After I respond, follow up with a second question before moving on.
+
+Remember: you are a Socratic coach, not a answer machine. Push me to think harder about what we may have missed.`;
+  }
+
+  if(type==="interview"){
+    const d=getDashData();
+    // Build personalised card from vote data
+    const strengths=s.topVoted.slice(0,3);
+    const devAreas=s.zeroVoted.slice(0,3);
+    const clusterGaps=s.underClusters.map(c=>{
+      const topSk=s.skills.filter(x=>x.cluster===c.id).sort((a,b)=>b.freq-a.freq).slice(0,2).map(x=>x.label);
+      return`${c.label}: ${topSk.join(", ")||"see board"}`;
+    });
+
+    return`SKILL SWAP PEER INTERVIEW CARD
+Generated from Speed Decode Session — ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
+
+━━━ STRENGTHS TO EVIDENCE ━━━
+(Ask your partner: "Tell me about a specific time you demonstrated this skill")
+
+${strengths.length?strengths.map((s,i)=>`${i+1}. ${s.label} — voted by ${s.votes} peer${s.votes!==1?"s":""} · found in ${s.freq}/${ADS.length} ads`).join("\n"):"Cast votes in the board to generate personalised strengths."}
+
+━━━ DEVELOPMENT AREAS TO PROBE ━━━
+(Ask your partner: "How would you rate yourself on this? What evidence do you have?")
+
+${devAreas.length?devAreas.map((s,i)=>`${i+1}. ${s.label} — listed in ${s.freq}/${ADS.length} ads but received no votes`).join("\n"):"All skills received votes — check the Skill Clusters chart for under-indexed areas."}
+
+━━━ CLUSTER GAPS IDENTIFIED ━━━
+${clusterGaps.length?clusterGaps.join("\n"):"No significant cluster gaps detected."}
+
+━━━ AFTER YOUR PEER INTERVIEW ━━━
+Compare your partner's assessment with this card. Discrepancies = your blind spots.
+Use what you learn to write specific, evidence-based comparisons in A1 Step 5.
+
+Board data: ${s.totalNotes} skills extracted · ${s.totalVotes} votes cast
+Course: COMM2384/2767 · Client Management`;
+  }
+
+  if(type==="mock-all"||type==="mock-cluster"){
+    let skillsToUse;
+    let focusNote="";
+    if(type==="mock-cluster"&&clusterId){
+      const cl=SKILL_CLUSTERS.find(c=>c.id===clusterId);
+      skillsToUse=s.skills.filter(x=>x.cluster===clusterId).slice(0,6);
+      focusNote=cl?`\n\nFocus cluster: ${cl.icon} ${cl.label}`:"";
+    } else {
+      skillsToUse=s.skills.slice(0,8);
+    }
+    const skillListStr=skillsToUse.map(x=>`- ${x.label}`).join("\n")||"- Communication\n- Relationship building\n- Project management";
+
+    return`Hi Alex, I want to practise a skills-based interview. Please use Career Coach mode.
+
+Here are the key skills I need to evidence (extracted from real job ads in my Speed Decode session)${focusNote}:
+
+${skillListStr}
+
+Interview me on each skill one at a time. For each one:
+1. Ask me a behavioural question ("Tell me about a time...")
+2. Push me for specific details — situation, action, result
+3. If I give a vague answer, coach me: suggest a context I might draw from (group project, part-time job, volunteer work, class activity)
+4. After all skills, summarise: which had strong evidence, which had thin evidence, and what that tells me about where to focus for A1
+
+Do NOT move to the next skill until you are satisfied with my answer for the current one. Start with the first skill now.`;
+  }
+
+  if(type==="smart"){
+    const d=getDashData();
+    const goals=buildSmartGoalText(d);
+    return`SMART GOAL WORKSHOP CARD
+Generated from Speed Decode Session — ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
+Course: COMM2384/2767 · Client Management · A1 Criterion 4
+
+Based on your class's Speed Decode data, the following clusters are UNDER-INDEXED
+(they appear frequently in job ads but received low vote priority):
+
+${goals}
+
+━━━ COMMON A1 ERRORS — CHECK YOUR GOALS AGAINST THESE ━━━
+✗ "I will take a LinkedIn Learning course" — excluded in A1 instructions
+✗ "I want to get better at X" — no specific action, no measurable outcome
+✗ "Read more about the industry" — not measurable, no deadline
+✗ "Improve communication by talking to more people" — no context, no measure
+✗ "Become an expert by semester end" — not achievable without prior background
+
+━━━ PEER REVIEW CHECKLIST ━━━
+For each goal, verify:
+□ Specific: names a concrete skill and a concrete action
+□ Measurable: has a number, output, or observable outcome
+□ Achievable: uses course activities, real projects, or accessible resources
+□ Relevant: addresses a skill from the job ads (not LinkedIn Learning)
+□ Time-bound: has a specific week or date deadline
+
+Board data: ${s.totalNotes} skills · ${s.totalVotes} votes · ${s.underClusters.length} under-indexed clusters`;
+  }
+
+  if(type==="challenger"){
+    const d=getDashData();
+    const goals=buildSmartGoalText(d);
+    return`Hi Alex, please use Career Coach mode and act as a strict SMART goal reviewer for my Client Management assignment (A1).
+
+Here are my two draft SMART goals, generated from my class's Speed Decode session data:
+
+${goals}
+
+Please challenge each goal rigorously:
+1. Flag any goal that relies on an online course or LinkedIn Learning — these are explicitly prohibited in my assignment
+2. Check each SMART criterion: is it truly Specific, Measurable, Achievable, Relevant, Time-bound?
+3. If a goal fails any criterion, ask me one question to help me fix it — do not rewrite it for me
+4. After I revise, check again. Repeat until both goals pass all five criteria.
+
+Start with Goal 1. Be strict — weak SMART goals are the most common reason students lose marks on Criterion 4.`;
+  }
+
+  return"";
+}
+
+function buildSmartGoalText(d){
+  // Pull the two most under-indexed clusters and use their SMART templates
+  const SMART_TEMPLATES={
+    client:{S:"Participate in and lead at least two in-class negotiation or client briefing role-plays",M:"Write a 200-word debrief after each documenting strategy used and what to change",A:"Use in-class Speed Decode debrief and peer interview as rehearsal opportunities",R:`Client Relations cluster: ${getClusterStats(d,"client")}`,T:"By Week 10"},
+    strategy:{S:"Conduct a competitor analysis using at least 3 publicly available data sources",M:"Produce a 500-word strategic brief with supporting data tables",A:"Use publicly available market reports and brand case studies",R:`Strategy & Research cluster: ${getClusterStats(d,"strategy")}`,T:"Within 3 weeks"},
+    ops:{S:"Build a full project timeline and basic budget model for a mock $10,000 campaign",M:"Timeline covers 5 production phases; budget accounts for 3 cost types with justifications",A:"Use free Asana or Google Sheets templates and course resources",R:`Project & Operations cluster: ${getClusterStats(d,"ops")}`,T:"By end of semester"},
+    creative:{S:"Write and pitch one original creative concept including rationale and target audience",M:"Receive structured peer feedback against a 3-point rubric (clarity, originality, relevance)",A:"Use an in-class brief as the source material",R:`Creative & Content cluster: ${getClusterStats(d,"creative")}`,T:"Within 2 weeks"},
+    language:{S:"Review advertising regulations for one market covered in the Speed Decode job ads",M:"Summarise 3 key compliance rules and apply each to a real ad example",A:"Use publicly available regulatory guidelines (ACCC, ASA, or relevant Vietnamese body)",R:`Language & Compliance cluster: ${getClusterStats(d,"language")}`,T:"Before the next tutorial session"},
+    other:{S:"Identify one zero-vote skill from the Speed Decode board and develop a concrete action plan",M:"Produce one piece of evidence (project output, written reflection, or peer assessment) within the semester",A:"Use available course activities and industry contacts",R:`Skills identified in ${ADS.length} job ads but not prioritised by class voters`,T:"By end of semester"},
+  };
+  const underClusters=d.semClusters.filter(c=>c.entries>0).sort((a,b)=>(b.freqT-b.voteT)-(a.freqT-a.voteT)).slice(0,2);
+  if(!underClusters.length)return"(No skills on board yet — complete the Speed Decode activity first)";
+  return underClusters.map((cl,i)=>{
+    const t=SMART_TEMPLATES[cl.id]||SMART_TEMPLATES.other;
+    const topSk=getDashData().skills||[];
+    return`GOAL ${i+1}: ${cl.label} (under-indexed by ${((cl.freqT-cl.voteT)/10).toFixed(1)}%)
+S: ${t.S}
+M: ${t.M}
+A: ${t.A}
+R: ${t.R}
+T: ${t.T}`;
+  }).join("\n\n");
+}
+
+function getClusterStats(d,id){
+  const cl=d.semClusters.find(c=>c.id===id);
+  if(!cl||!cl.entries)return"not yet identified in board";
+  const diff=((cl.freqT-cl.voteT)/10).toFixed(1);
+  return`${cl.entries} skills in ${ADS.length} ads (${cl.freqPct}% skill share) but only ${cl.votePct}% vote share — under-indexed by ${diff}%`;
+}
+
+/* ── Modal open/close/copy ── */
+let currentAlexType="";
+let currentAlexCluster="";
+
+function openAlex(type, clusterId=""){
+  currentAlexType=type;
+  currentAlexCluster=clusterId;
+
+  const titles={
+    "decoder":   ["Alex the Job Ad Decoder",        "Week 2 · Sharpen your ad analysis · ask one question at a time"],
+    "interview": ["Skill Swap Interview Card",        "Week 3 · Personalised from live board data · use as peer review guide"],
+    "mock-all":  ["Alex the Mock Interviewer",        "Week 3 · Skills-based interview practice · all top skills"],
+    "mock-cluster":["Alex the Mock Interviewer",      "Week 3 · Cluster-focused practice · "+getClusterName(clusterId)],
+    "smart":     ["SMART Goal Workshop Card",         "Week 4 · Printable worksheet · A1 Criterion 4"],
+    "challenger":["Alex the SMART Goal Challenger",  "Week 4 · Stress-tests your goals · most useful for A1 Criterion 4"],
+  };
+  const[title,sub]=titles[type]||["Alex the Account Director","Career Coach mode"];
+  document.getElementById("alex-modal-title").textContent=title;
+  document.getElementById("alex-modal-sub").textContent=sub;
+
+  const prompt=buildPrompt(type,clusterId);
+  const body=document.getElementById("alex-modal-body");
+
+  // Context panel: board snapshot
+  const d=getDashData();
+  const contextHtml=`<div class="alex-context">
+    <div class="alex-context-label">📊 Live board data used in this prompt</div>
+    <strong>${d.totalNotes}</strong> skills extracted &nbsp;·&nbsp; <strong>${d.totalVotes}</strong> votes cast &nbsp;·&nbsp; <strong>${ADS.length}</strong> job ads analysed<br>
+    Top voted: <strong>${getDashData().annotated?Object.values((()=>{const m={};notes.forEach(n=>{const k=n.t.toLowerCase();if(!m[k]){m[k]={label:n.t,votes:0};}m[k].votes+=(n.v||0);});return m;})()).sort((a,b)=>b.votes-a.votes).slice(0,3).map(x=>x.label).join(", ")||"—":"—"}</strong>
+  </div>`;
+
+  const tipsByType={
+    "decoder":"After copying, paste into Claude.ai or Google AI Studio. Alex will ask probing questions — answer honestly and compare with your classmates' extractions.",
+    "interview":"This card is generated directly from your class's vote data. Top-voted skills = likely strengths; zero-voted skills in multiple ads = likely blind spots. Share with your peer interview partner.",
+    "mock-all":"Alex will interview you skill by skill. Have a real example ready for each one — use group projects, part-time work, volunteer activities, or class experiences.",
+    "mock-cluster":"Focused cluster practice helps you go deep on one area. Best used before the Week 3 peer interview as preparation.",
+    "smart":"Print or share this card as your peer review worksheet in the Week 4 SMART Goal Workshop. The goals are pre-populated from your class's under-indexed clusters.",
+    "challenger":"Iterate 2–3 times with Alex until both goals pass all SMART criteria. Then bring the refined goals to class for peer review. AI pre-drafting + human feedback produces stronger goals than either alone.",
+  };
+
+  body.innerHTML=contextHtml+
+    `<div class="alex-prompt-label">Prompt to paste into Alex (Career Coach mode)</div>
+     <textarea class="alex-prompt" id="alex-prompt-text" readonly>${escHtml(prompt)}</textarea>
+     <div class="alex-tip">💡 ${tipsByType[type]||""}</div>`;
+
+  // Reset copy button
+  const cb=document.getElementById("alex-copy-btn");
+  cb.textContent="📋 Copy prompt";cb.classList.remove("copied");
+
+  document.getElementById("alex-overlay").classList.add("open");
+}
+
+function closeAlex(){
+  document.getElementById("alex-overlay").classList.remove("open");
+}
+
+function copyAlexPrompt(){
+  const ta=document.getElementById("alex-prompt-text");
+  navigator.clipboard.writeText(ta.value).then(()=>{
+    const cb=document.getElementById("alex-copy-btn");
+    cb.textContent="✓ Copied!";cb.classList.add("copied");
+    setTimeout(()=>{cb.textContent="📋 Copy prompt";cb.classList.remove("copied");},2500);
+  }).catch(()=>{ta.select();document.execCommand("copy");});
+}
+
+function getClusterName(id){
+  const cl=SKILL_CLUSTERS.find(c=>c.id===id);
+  return cl?cl.label:"cluster";
+}
+
+function escHtml(str){
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 </script>
 </body>
