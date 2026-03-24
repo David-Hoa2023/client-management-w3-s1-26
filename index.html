@@ -142,7 +142,8 @@
 
   /* Chart containers */
   .chart-wrap{position:relative;width:100%;height:240px}
-  .chart-wrap.tall{height:280px}
+  .chart-wrap.tall{height:300px}
+  .chart-wrap.dynamic{width:100%;} /* height set by JS */
   .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
   @media(max-width:560px){.chart-grid{grid-template-columns:1fr}}
 
@@ -395,7 +396,7 @@
         <div id="cl-filter-bar" style="display:none;padding:4px 0 8px;display:none;flex-wrap:wrap;gap:4px">
           <button class="qf-chip on" id="clf-all" onclick="drillCluster(null)" style="font-size:10px;padding:2px 9px">All clusters</button>
         </div>
-        <div class="chart-wrap tall"><canvas id="chart-ratio"></canvas></div>
+        <div class="chart-wrap dynamic" id="chart-ratio-wrap"><canvas id="chart-ratio"></canvas></div>
         <!-- Individual skill drill-down list -->
         <div id="cl-skill-list" style="display:none;margin-top:10px;border-top:0.5px solid var(--border);padding-top:8px;overflow-y:auto;max-height:240px"></div>
       </div>
@@ -1718,6 +1719,11 @@ function renderClusterChart(d){
     // Sort by voteT desc (integer, exact comparison)
     const sorted=[...d.semClusters].sort((a,b)=>b.voteT-a.voteT);
 
+    // Dynamic height: 56px per cluster row + header
+    const clusterH=Math.max(220, sorted.length*56+40);
+    const wrap=document.getElementById("chart-ratio-wrap");
+    if(wrap)wrap.style.height=clusterH+"px";
+
     chartRatio=new Chart(ctx,{
       type:"bar",
       data:{
@@ -1725,9 +1731,9 @@ function renderClusterChart(d){
         datasets:[
           {label:"Skill share %",data:sorted.map(c=>c.freqT),
             backgroundColor:sorted.map(c=>c.color+"44"),borderColor:sorted.map(c=>c.color+"88"),
-            borderWidth:1,borderRadius:5,barThickness:20},
+            borderWidth:1,borderRadius:6,barThickness:18,categoryPercentage:0.6},
           {label:"Vote share %",data:sorted.map(c=>c.voteT),
-            backgroundColor:sorted.map(c=>c.color),borderRadius:5,barThickness:20},
+            backgroundColor:sorted.map(c=>c.color),borderRadius:6,barThickness:18,categoryPercentage:0.6},
         ]
       },
       options:{
@@ -1781,7 +1787,7 @@ function renderClusterChart(d){
       skillMap[key].freq++;skillMap[key].votes+=(n.v||0);
     });
 
-    const skillArr=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq).slice(0,20);
+    const skillArr=Object.values(skillMap).sort((a,b)=>b.votes-a.votes||b.freq-a.freq).slice(0,12);
 
     if(!skillArr.length){
       if(skillList){skillList.style.display="block";skillList.innerHTML=`<p style="font-size:11px;color:var(--text3);padding:8px">No skills in this cluster yet.</p>`;}
@@ -1799,16 +1805,21 @@ function renderClusterChart(d){
       s.votePct=(s.voteT/10).toFixed(1);
     });
 
+    // Dynamic height: 52px per skill row + legend
+    const skillH=Math.max(260, skillArr.length*52+60);
+    const wrapS=document.getElementById("chart-ratio-wrap");
+    if(wrapS)wrapS.style.height=skillH+"px";
+
     chartRatio=new Chart(ctx,{
       type:"bar",
       data:{
         labels:skillArr.map(s=>s.label),
         datasets:[
           {label:"Mention share %",data:skillArr.map(s=>s.freqT),
-            backgroundColor:skillArr.map(s=>s.color+"44"),borderColor:skillArr.map(s=>s.color+"88"),
-            borderWidth:1,borderRadius:5,barThickness:16},
+            backgroundColor:skillArr.map(s=>s.color+"33"),borderColor:skillArr.map(s=>s.color+"99"),
+            borderWidth:1,borderRadius:5,barThickness:14,categoryPercentage:0.55},
           {label:"Vote share %",data:skillArr.map(s=>s.voteT),
-            backgroundColor:skillArr.map(s=>s.color),borderRadius:5,barThickness:16},
+            backgroundColor:skillArr.map(s=>s.color),borderRadius:5,barThickness:14,categoryPercentage:0.55},
         ]
       },
       options:{
@@ -1831,15 +1842,19 @@ function renderClusterChart(d){
               return[`${tag}: ${sign}${diff.toFixed(1)}%`,laneName,`Cluster: ${clName}`];
             }
           }},
-          datalabels:{anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:2,
+          datalabels:{
+            anchor:"end",align:"end",font:{size:9,weight:"bold"},clip:false,offset:4,
             color:ctx2=>skillArr[ctx2.dataIndex].color,
-            formatter:(v,ctx2)=>v===0?"":skillArr[ctx2.dataIndex][ctx2.datasetIndex===0?"freqPct":"votePct"]+"%"}
+            // Only show label on the vote share bar (index 1) to halve clutter
+            display:ctx2=>ctx2.datasetIndex===1&&skillArr[ctx2.dataIndex].voteT>0,
+            formatter:(v,ctx2)=>skillArr[ctx2.dataIndex].votePct+"%"
+          }
         },
-        layout:{padding:{right:40,top:4}},
+        layout:{padding:{right:48,top:4,bottom:4}},
         scales:{
           x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10},callback:v=>(v/10).toFixed(1)+"%"},
             title:{display:true,text:"Share of shown set (%)",color:tickColor,font:{size:9}}},
-          y:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"},maxTicksLimit:20}},
+          y:{grid:{display:false},ticks:{color:tickColor,font:{size:10,weight:"bold"}}},
         }
       },
       plugins:[ChartDataLabels]
