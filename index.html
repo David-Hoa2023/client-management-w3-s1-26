@@ -1291,16 +1291,13 @@ function getDashData(){
   // Assign each note to a semantic cluster
   const annotated=notes.map(n=>({...n,cluster:assignCluster(n)}));
 
-  // Semantic cluster summaries
+  // Semantic cluster summaries — raw values first, percentages corrected after
   const semClusters=SKILL_CLUSTERS.map(cl=>{
     const items=annotated.filter(n=>n.cluster===cl.id);
     const entries=items.length;
     const voteSum=items.reduce((s,n)=>s+(n.v||0),0);
     const ratio=entries>0?+(voteSum/entries).toFixed(2):0;
-    // Normalised shares (%)
-    const freqPct=+(entries/totalNotes*100).toFixed(1);
-    const votePct=resolvedVotes>0?+(voteSum/resolvedVotes*100).toFixed(1):0;
-    return{...cl,entries,votes:voteSum,ratio,gap:voteSum-entries,items,freqPct,votePct};
+    return{...cl,entries,votes:voteSum,ratio,gap:voteSum-entries,items,freqPct:0,votePct:0};
   });
   const otherItems=annotated.filter(n=>n.cluster==="other");
   if(otherItems.length){
@@ -1308,10 +1305,27 @@ function getDashData(){
     const entries=otherItems.length;
     semClusters.push({id:"other",label:"Other",icon:"📌",color:"#94a3b8",bg:"#F1F5F9",
       entries,votes:voteSum,ratio:entries>0?+(voteSum/entries).toFixed(2):0,
-      gap:voteSum-entries,items:otherItems,kw:[],
-      freqPct:+(entries/totalNotes*100).toFixed(1),
-      votePct:resolvedVotes>0?+(voteSum/resolvedVotes*100).toFixed(1):0});
+      gap:voteSum-entries,items:otherItems,kw:[],freqPct:0,votePct:0});
   }
+
+  /* Largest-remainder method: round each value to 1dp independently,
+     then add/subtract from the cluster with the largest rounding remainder
+     until the series sums exactly to 100.0 */
+  function distributeToExact100(arr, rawFn){
+    const raws=arr.map(rawFn);
+    const floors=raws.map(v=>Math.floor(v*10)/10);        // floor to 1dp
+    const remainders=raws.map((v,i)=>v-floors[i]);
+    let deficit=+(100-floors.reduce((s,v)=>s+v,0)).toFixed(1);
+    // Sort indices by remainder desc, distribute 0.1 increments
+    const order=[...arr.keys()].sort((a,b)=>remainders[b]-remainders[a]);
+    let i=0;
+    while(deficit>=0.05&&i<order.length){floors[order[i]]+=0.1;floors[order[i]]=+floors[order[i]].toFixed(1);deficit=+(deficit-0.1).toFixed(1);i++;}
+    return floors;
+  }
+
+  const freqPcts=distributeToExact100(semClusters,c=>c.entries/totalNotes*100);
+  const votePcts=distributeToExact100(semClusters,c=>resolvedVotes>0?c.votes/resolvedVotes*100:0);
+  semClusters.forEach((c,i)=>{c.freqPct=freqPcts[i];c.votePct=votePcts[i];});
 
   // Per-lane clusters
   const clusters=LANES_DASH.map(lane=>{
@@ -1786,16 +1800,16 @@ function renderClusterChart(d){
       skillMap[key].votes+=(n.v||0);
     });
 
-    // Normalise: freq → % of ads (max 6 = 100%); votes → % of total votes
-    const totalV=d.resolvedVotes||1;
-    const skillArr=Object.values(skillMap)
-      .map(s=>({
-        ...s,
-        freqPct:+(s.freq/NUM_ADS*100).toFixed(1),
-        votePct:+(s.votes/totalV*100).toFixed(1)
-      }))
-      .sort((a,b)=>b.votePct-a.votePct||b.freqPct-a.freqPct)
-      .slice(0,20);
+    // Normalise with remainder correction so both series sum to 100%
+    const totalSkillEntries=Object.values(skillMap).reduce((s,x)=>s+x.freq,0)||1;
+    const totalSkillVotes=Object.values(skillMap).reduce((s,x)=>s+x.votes,0)||1;
+    const allSkills=Object.values(skillMap)
+      .map(s=>({...s,freqPct:s.freq/totalSkillEntries*100,votePct:s.votes/totalSkillVotes*100}))
+      .sort((a,b)=>b.votePct-a.votePct||b.freqPct-a.freqPct);
+    // Apply largest-remainder rounding to top 20 slice
+    const skillArr=allSkills.slice(0,20);
+    // (remaining % beyond top-20 not shown, so don't force 100 on slice — display as-is with 1dp)
+    skillArr.forEach(s=>{s.freqPct=+s.freqPct.toFixed(1);s.votePct=+s.votePct.toFixed(1);});
 
     if(!skillArr.length){
       if(skillList){skillList.style.display="block";skillList.innerHTML=`<p style="font-size:11px;color:var(--text3);padding:8px">No skills in this cluster yet.</p>`;}
