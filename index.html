@@ -318,6 +318,46 @@
   .interview-badge.strength{background:var(--teal-50);color:var(--teal-800)}
   .interview-badge.develop{background:var(--amber-50);color:var(--amber-800)}
 
+  /* Cluster icon tooltip */
+  .cl-tooltip-wrap{position:relative;display:inline-block}
+  .cl-tooltip-wrap:hover .cl-tooltip{opacity:1;transform:translateY(0);pointer-events:auto}
+  .cl-tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);
+    background:#1e1e1c;color:#F1EFE8;border-radius:10px;padding:8px 10px;font-size:11px;font-weight:500;
+    white-space:nowrap;min-width:160px;max-width:220px;white-space:normal;
+    opacity:0;pointer-events:none;transition:all .18s;z-index:400;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+  .cl-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#1e1e1c}
+  .cl-tooltip-name{font-weight:800;margin-bottom:3px;color:#c4b5fd}
+  .cl-tooltip-skills{font-size:10px;color:rgba(255,255,255,.65);line-height:1.4}
+
+  /* Alex modal tabs */
+  .alex-tabs{display:flex;gap:0;border-bottom:0.5px solid var(--border2);flex-shrink:0;background:var(--bg)}
+  .alex-tab{padding:9px 16px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;
+    color:var(--text3);border-bottom:2px solid transparent;transition:all .15s}
+  .alex-tab:hover{color:var(--text)}
+  .alex-tab.on{color:#534AB7;border-bottom-color:#534AB7}
+  .alex-tab-panel{display:none}
+  .alex-tab-panel.on{display:block}
+
+  /* Critique framework */
+  .critique-lens{border:0.5px solid var(--border2);border-radius:10px;overflow:hidden;margin-bottom:.75rem}
+  .critique-lens-hdr{padding:8px 12px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+  .critique-lens-hdr .cl-badge{font-size:9px;padding:1px 7px;border-radius:20px;font-weight:700;margin-left:auto}
+  .critique-lens-body{padding:0 12px;max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .critique-lens-body.open{max-height:400px;padding:0 12px 10px}
+  .critique-q{font-size:11px;color:var(--text2);line-height:1.6;padding:4px 0;border-bottom:0.5px solid var(--border)}
+  .critique-q:last-child{border-bottom:none}
+  .critique-q strong{color:var(--text);font-weight:700}
+  .critique-paste{width:100%;min-height:100px;padding:10px 12px;border:0.5px solid var(--border2);
+    border-radius:8px;background:var(--bg);color:var(--text);font-size:11px;line-height:1.6;
+    resize:vertical;font-family:inherit;outline:none;margin-bottom:.75rem}
+  .critique-paste:focus{border-color:#534AB7}
+  .critique-score{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+  .cs-pill{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;
+    border:0.5px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .12s}
+  .cs-pill:hover{border-color:#534AB7;color:#534AB7}
+  .cs-pill.sel{background:#534AB7;color:#fff;border-color:#534AB7}
+
   /* Per-ad breakdown */
   .ad-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
   @media(max-width:480px){.ad-grid{grid-template-columns:repeat(2,1fr)}}
@@ -570,6 +610,10 @@
           <p id="alex-modal-sub">Career Coach mode · Socratic practice tool</p>
         </div>
         <button class="alex-modal-close" onclick="closeAlex()">✕</button>
+      </div>
+      <div id="alex-modal-tabs" class="alex-tabs" style="display:none">
+        <button class="alex-tab on" id="tab-prompt" onclick="switchAlexTab('prompt')">📋 Prompt</button>
+        <button class="alex-tab" id="tab-critique" onclick="switchAlexTab('critique')">🔍 Critique Alex's output</button>
       </div>
       <div class="alex-modal-body" id="alex-modal-body">
         <!-- populated by openAlex() -->
@@ -2055,15 +2099,25 @@ function renderAdGrid(d){
       <div class="ac-votes">${ad.votes>0?"🔴 "+ad.votes+" vote"+(ad.votes!==1?"s":""):"No votes yet"}</div>
     </div>`).join("");
 
-  // Populate cluster-specific mock interview buttons
+  // Populate cluster-specific mock interview buttons with rich tooltips
   const cmb=document.getElementById("cluster-mock-btns");
   if(cmb){
     const d2=getDashData();
     cmb.innerHTML=SKILL_CLUSTERS.map(cl=>{
-      const hasSkills=d2.annotated.some(n=>n.cluster===cl.id);
-      if(!hasSkills)return"";
-      return`<button class="alex-trigger alex-trigger-sm" onclick="openAlex('mock-cluster','${cl.id}')"
-        style="border-color:${cl.color};color:${cl.color}" title="${cl.label}">${cl.icon}</button>`;
+      const clSkills=d2.annotated.filter(n=>n.cluster===cl.id);
+      if(!clSkills.length)return"";
+      // Top 3 unique skill names for tooltip
+      const uniq={};clSkills.forEach(n=>{const k=n.t.toLowerCase();if(!uniq[k])uniq[k]={label:n.t,votes:0};uniq[k].votes+=(n.v||0);});
+      const topSkills=Object.values(uniq).sort((a,b)=>b.votes-a.votes).slice(0,3).map(x=>x.label);
+      const count=Object.keys(uniq).length;
+      return`<div class="cl-tooltip-wrap">
+        <button class="alex-trigger alex-trigger-sm" onclick="openAlex('mock-cluster','${cl.id}')"
+          style="border-color:${cl.color};color:${cl.color}">${cl.icon}</button>
+        <div class="cl-tooltip">
+          <div class="cl-tooltip-name">${cl.icon} ${cl.label}</div>
+          <div class="cl-tooltip-skills">${count} skill${count!==1?"s":""} · Top: ${topSkills.join(", ")||"—"}</div>
+        </div>
+      </div>`;
     }).join("");
   }
 }
@@ -2280,47 +2334,170 @@ function openAlex(type, clusterId=""){
   currentAlexCluster=clusterId;
 
   const titles={
-    "decoder":   ["Alex the Job Ad Decoder",        "Week 2 · Sharpen your ad analysis · ask one question at a time"],
-    "interview": ["Skill Swap Interview Card",        "Week 3 · Personalised from live board data · use as peer review guide"],
-    "mock-all":  ["Alex the Mock Interviewer",        "Week 3 · Skills-based interview practice · all top skills"],
-    "mock-cluster":["Alex the Mock Interviewer",      "Week 3 · Cluster-focused practice · "+getClusterName(clusterId)],
-    "smart":     ["SMART Goal Workshop Card",         "Week 4 · Printable worksheet · A1 Criterion 4"],
-    "challenger":["Alex the SMART Goal Challenger",  "Week 4 · Stress-tests your goals · most useful for A1 Criterion 4"],
+    "decoder":      ["Alex the Job Ad Decoder",       "Week 2 · Sharpen your ad analysis · ask one question at a time"],
+    "interview":    ["Skill Swap Interview Card",       "Week 3 · Personalised from live board data · use as peer review guide"],
+    "mock-all":     ["Alex the Mock Interviewer",       "Week 3 · Skills-based interview practice · all top skills"],
+    "mock-cluster": ["Alex the Mock Interviewer",       "Week 3 · Cluster-focused practice · "+getClusterName(clusterId)],
+    "smart":        ["SMART Goal Workshop Card",        "Week 4 · Printable worksheet · A1 Criterion 4"],
+    "challenger":   ["Alex the SMART Goal Challenger", "Week 4 · Stress-tests your goals · most useful for A1 Criterion 4"],
   };
   const[title,sub]=titles[type]||["Alex the Account Director","Career Coach mode"];
   document.getElementById("alex-modal-title").textContent=title;
   document.getElementById("alex-modal-sub").textContent=sub;
+
+  // Show tabs only for mock interviewer types
+  const isMock=type==="mock-all"||type==="mock-cluster";
+  const tabsEl=document.getElementById("alex-modal-tabs");
+  if(tabsEl)tabsEl.style.display=isMock?"flex":"none";
+  if(isMock)switchAlexTab("prompt",true); // reset to prompt tab silently
 
   const prompt=buildPrompt(type,clusterId);
   const body=document.getElementById("alex-modal-body");
 
   // Context panel: board snapshot
   const d=getDashData();
+  const topVotedStr=(()=>{
+    const m={};notes.forEach(n=>{const k=n.t.toLowerCase();if(!m[k]){m[k]={label:n.t,votes:0};}m[k].votes+=(n.v||0);});
+    return Object.values(m).sort((a,b)=>b.votes-a.votes).slice(0,3).map(x=>x.label).join(", ")||"—";
+  })();
   const contextHtml=`<div class="alex-context">
     <div class="alex-context-label">📊 Live board data used in this prompt</div>
     <strong>${d.totalNotes}</strong> skills extracted &nbsp;·&nbsp; <strong>${d.totalVotes}</strong> votes cast &nbsp;·&nbsp; <strong>${ADS.length}</strong> job ads analysed<br>
-    Top voted: <strong>${getDashData().annotated?Object.values((()=>{const m={};notes.forEach(n=>{const k=n.t.toLowerCase();if(!m[k]){m[k]={label:n.t,votes:0};}m[k].votes+=(n.v||0);});return m;})()).sort((a,b)=>b.votes-a.votes).slice(0,3).map(x=>x.label).join(", ")||"—":"—"}</strong>
+    Top voted: <strong>${topVotedStr}</strong>
+    ${isMock&&clusterId?`<br>Focus: <strong style="color:${SKILL_CLUSTERS.find(c=>c.id===clusterId)?.color||"#534AB7"}">${SKILL_CLUSTERS.find(c=>c.id===clusterId)?.icon||""} ${getClusterName(clusterId)}</strong>`:""}
   </div>`;
 
   const tipsByType={
-    "decoder":"After copying, paste into Claude.ai or Google AI Studio. Alex will ask probing questions — answer honestly and compare with your classmates' extractions.",
-    "interview":"This card is generated directly from your class's vote data. Top-voted skills = likely strengths; zero-voted skills in multiple ads = likely blind spots. Share with your peer interview partner.",
-    "mock-all":"Alex will interview you skill by skill. Have a real example ready for each one — use group projects, part-time work, volunteer activities, or class experiences.",
-    "mock-cluster":"Focused cluster practice helps you go deep on one area. Best used before the Week 3 peer interview as preparation.",
-    "smart":"Print or share this card as your peer review worksheet in the Week 4 SMART Goal Workshop. The goals are pre-populated from your class's under-indexed clusters.",
-    "challenger":"Iterate 2–3 times with Alex until both goals pass all SMART criteria. Then bring the refined goals to class for peer review. AI pre-drafting + human feedback produces stronger goals than either alone.",
+    "decoder":    "After copying, paste into Claude.ai or Google AI Studio. Alex will ask probing questions — answer honestly and compare with your classmates' extractions.",
+    "interview":  "This card is generated directly from your class's vote data. Top-voted skills = likely strengths; zero-voted skills in multiple ads = likely blind spots. Share with your peer interview partner.",
+    "mock-all":   "Alex will interview you skill by skill. Have a real example ready for each one — use group projects, part-time work, volunteer activities, or class experiences. After your session, come back and use the <strong>Critique Alex's output</strong> tab.",
+    "mock-cluster":"Focused cluster practice helps you go deep on one area. Best used before the Week 3 peer interview. After your session, use the <strong>Critique Alex's output</strong> tab to sharpen your thinking.",
+    "smart":      "Print or share this card as your peer review worksheet in the Week 4 SMART Goal Workshop. The goals are pre-populated from your class's under-indexed clusters.",
+    "challenger": "Iterate 2–3 times with Alex until both goals pass all SMART criteria. Then bring the refined goals to class for peer review. AI pre-drafting + human feedback produces stronger goals than either alone.",
   };
 
-  body.innerHTML=contextHtml+
-    `<div class="alex-prompt-label">Prompt to paste into Alex (Career Coach mode)</div>
-     <textarea class="alex-prompt" id="alex-prompt-text" readonly>${escHtml(prompt)}</textarea>
-     <div class="alex-tip">💡 ${tipsByType[type]||""}</div>`;
+  body.innerHTML=`<div id="alex-panel-prompt" class="alex-tab-panel on">
+    ${contextHtml}
+    <div class="alex-prompt-label">Prompt to paste into Alex (Career Coach mode)</div>
+    <textarea class="alex-prompt" id="alex-prompt-text" readonly>${escHtml(prompt)}</textarea>
+    <div class="alex-tip">💡 ${tipsByType[type]||""}</div>
+  </div>
+  <div id="alex-panel-critique" class="alex-tab-panel">
+    ${buildCritiquePanel(type,clusterId)}
+  </div>`;
 
   // Reset copy button
   const cb=document.getElementById("alex-copy-btn");
   cb.textContent="📋 Copy prompt";cb.classList.remove("copied");
 
   document.getElementById("alex-overlay").classList.add("open");
+}
+
+function switchAlexTab(tab, silent=false){
+  ["prompt","critique"].forEach(t=>{
+    document.getElementById("tab-"+t)?.classList.toggle("on",t===tab);
+    document.getElementById("alex-panel-"+t)?.classList.toggle("on",t===tab);
+  });
+  // Show/hide copy button — only relevant on prompt tab
+  const cb=document.getElementById("alex-copy-btn");
+  if(cb)cb.style.display=tab==="prompt"?"flex":"none";
+}
+
+function toggleCritiqueLens(id){
+  const body=document.getElementById("clens-"+id);
+  if(body)body.classList.toggle("open");
+}
+
+function selectCritiquePill(el, group){
+  document.querySelectorAll(`.cs-pill[data-group="${group}"]`).forEach(p=>p.classList.remove("sel"));
+  el.classList.add("sel");
+}
+
+function buildCritiquePanel(type, clusterId){
+  const clName=clusterId?getClusterName(clusterId):"your skills";
+  const LENSES=[
+    {
+      id:"accuracy",
+      icon:"🎯",label:"Accuracy",color:"#3b82f6",
+      intro:"Did Alex's feedback reflect what the job ads actually require — or was it generic advice?",
+      questions:[
+        {q:"Did Alex name skills that actually appear in the six job ads, or did it suggest things not evidenced in the Speed Decode data?",hint:"Compare Alex's feedback to your Speed Decode extraction."},
+        {q:"Were Alex's probing questions specific to the skills in your cluster, or could they have been asked about any skill?",hint:"Good specificity = the question only makes sense for that skill."},
+        {q:"If Alex gave you an example to draw on, was it relevant to an entry-level account management role in a communications agency?",hint:"Think about the job ads. Would this example resonate with a hiring manager at Dentsu or Ogilvy?"},
+      ],
+      pills:["Very specific","Somewhat generic","Too generic — could be any role"]
+    },
+    {
+      id:"depth",
+      icon:"🔬",label:"Depth of Questioning",color:"#8b5cf6",
+      intro:"Did Alex push you hard enough — or let you off the hook with vague answers?",
+      questions:[
+        {q:"When you gave a broad answer (e.g. 'I'm good at communication'), did Alex push back for specifics — situation, action, result?",hint:"A good interviewer never accepts a skill claim without evidence."},
+        {q:"Did Alex follow up at least once on your answer, or move straight to the next skill?",hint:"Real interviewers probe. Did Alex?"},
+        {q:"Did Alex accept your answer even when it lacked a measurable outcome?",hint:"Strong evidence = what you did AND what changed because of it."},
+      ],
+      pills:["Pushed hard","Pushed somewhat","Let me off too easily"]
+    },
+    {
+      id:"bias",
+      icon:"⚖️",label:"Balance & Bias",color:"#f59e0b",
+      intro:"AI tends to be encouraging. Did Alex give you an honest picture or a flattering one?",
+      questions:[
+        {q:"Did Alex's closing summary identify genuine weaknesses, or was it mostly positive?",hint:"Useful feedback is honest. Comfortable feedback is not always useful."},
+        {q:"Did Alex weight all skills equally, or focus disproportionately on the ones you answered well?",hint:"The skills you struggled to evidence are the most important for your A1 SMART goals."},
+        {q:"If you gave a thin answer, did Alex accept it or challenge it? What does that tell you about relying on AI for self-assessment?",hint:"AI cannot see your hesitations, body language, or the gap between what you say and what you mean."},
+      ],
+      pills:["Appropriately critical","Somewhat flattering","Too encouraging"]
+    },
+    {
+      id:"limits",
+      icon:"🚧",label:"AI Limitations",color:"#ef4444",
+      intro:"What could a human peer interviewer tell you that Alex could not?",
+      questions:[
+        {q:"Did Alex miss anything that your peer partner might have noticed — hesitation, contradiction, vague phrasing?",hint:"Human interviewers read tone and confidence. Alex only reads text."},
+        {q:"Were there moments where you felt Alex's follow-up question didn't quite fit your answer?",hint:"AI follows patterns. It can miss context-specific nuances."},
+        {q:"What is one question Alex did NOT ask that a real hiring manager definitely would?",hint:"Think about what an interviewer wants to know that isn't in your scripted answer."},
+      ],
+      pills:["Mostly accurate","Some limitations","Significant gaps"]
+    },
+  ];
+
+  const lensHtml=LENSES.map(l=>`
+    <div class="critique-lens">
+      <div class="critique-lens-hdr" onclick="toggleCritiqueLens('${l.id}')" style="background:${l.color}18">
+        <span style="font-size:16px">${l.icon}</span>
+        <span style="font-weight:800;color:var(--text)">${l.label}</span>
+        <span style="font-size:10px;color:var(--text3);font-weight:400;flex:1;margin-left:6px">${l.intro}</span>
+        <span class="cl-badge" style="background:${l.color}22;color:${l.color}">${l.questions.length} questions</span>
+        <span style="color:var(--text3);font-size:12px;margin-left:6px">▾</span>
+      </div>
+      <div class="critique-lens-body" id="clens-${l.id}">
+        ${l.questions.map((item,qi)=>`
+          <div class="critique-q">
+            <strong>Q${qi+1}.</strong> ${item.q}
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic">💭 ${item.hint}</div>
+          </div>`).join("")}
+        <div style="margin-top:8px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:5px">Your verdict on this lens:</div>
+          <div class="critique-score">
+            ${l.pills.map(p=>`<button class="cs-pill" data-group="${l.id}" onclick="selectCritiquePill(this,'${l.id}')">${p}</button>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>`).join("");
+
+  return`<div style="margin-bottom:.75rem">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">Critique Alex's interview feedback</div>
+    <p style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:.75rem">After completing the mock interview with Alex, paste Alex's closing summary below and work through the four critical thinking lenses. This is not about judging AI — it is about developing your own evaluative judgment.</p>
+    <div class="alex-prompt-label">Paste Alex's closing summary / feedback here</div>
+    <textarea class="critique-paste" id="critique-paste" placeholder="Paste Alex's response here — e.g. its closing summary identifying which skills had strong evidence and which were thin…"></textarea>
+    <div class="alex-tip" style="margin-bottom:1rem">💡 AI tools are trained to be helpful and encouraging. Your job here is to interrogate that helpfulness — identify where Alex was accurate, where it was generic, and what it couldn't see. This skill (evaluating AI output) is increasingly required in agency roles.</div>
+  </div>
+  ${lensHtml}
+  <div style="margin-top:.75rem;padding:.75rem;border-radius:10px;background:var(--bg2);border:0.5px solid var(--border)">
+    <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:4px">📝 Reflection prompt (bring to class)</div>
+    <p style="font-size:11px;color:var(--text2);line-height:1.6">Based on your critique: <em>What is one thing Alex got right that you want to act on? What is one thing Alex missed that only your peer partner could surface?</em> Use this in the Week 3 debrief discussion.</p>
+  </div>`;
 }
 
 function closeAlex(){
